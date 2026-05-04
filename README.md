@@ -71,8 +71,9 @@ The skill will:
 3. Ask whether to include the optional Backend / Frontend / QA personas (defaults to all three).
 4. Generate the universal-subset files: `CLAUDE.md`, `agents/orchestrator.md` + chosen personas, `pm/backlog.md`, `pm/management.md`, `pm/roadmap.md`, `docs/README.md`, `docs/adr/0000-template.md`, `docs/dispatch-logs/.gitkeep`, `.gitignore`.
 5. Ask follow-up questions specific to your stack (Zod / typecheck / migration policy / API spec / etc.) and add the answers to a "Project-specific rules" section in `CLAUDE.md`.
-6. Bootstrap five starter memory entries about the workflow's conventions (worktree+PR discipline, worktrees-not-siblings, document version+history, decisions-via-ADR, prefer-concrete-comparisons).
-7. Print a summary of what was written and the recommended next steps.
+6. Ask which **trusted MCP integrations** the team uses (Linear, Atlassian, Notion, Slack, GitHub, Figma). For each yes, marks the entry `_enabled: true` in a generated `.mcp.example.json`, copies `docs/integrations.md` into the project, and notes the integration in `agents/orchestrator.md`. The list is restricted to vendor-published, OAuth-secured MCPs — see [`docs/integrations.md`](./docs/integrations.md) for the trust criteria.
+7. Bootstrap five starter memory entries about the workflow's conventions (worktree+PR discipline, worktrees-not-siblings, document version+history, decisions-via-ADR, prefer-concrete-comparisons).
+8. Print a summary of what was written and the recommended next steps.
 
 Re-running the skill on the same project re-detects existing files and asks before overwriting — so it's safe to run again after a major project pivot.
 
@@ -99,10 +100,15 @@ Re-running the skill on the same project re-detects existing files and asks befo
 │   └── README.md
 └── docs/
     ├── README.md
+    ├── integrations.md                # if any MCP integration was enabled
     ├── adr/
     │   └── 0000-template.md
     └── dispatch-logs/
         └── .gitkeep
+
+# plus, at the repo root, if any integration was enabled:
+.mcp.example.json                      # example MCP server config (committed)
+.mcp.json                              # active config (gitignored; user creates from example)
 ```
 
 Plus user-scoped memory at `~/.claude/projects/<your-project-slug>/memory/`:
@@ -147,7 +153,7 @@ If you find yourself fighting the scaffold, fork it. The methodology is more use
 
 Multi-agent workflows fail in predictable ways: drift between documents, decisions that evaporate, the same trade-off re-litigated every quarter, agents stepping on each other's branches, "who owns this?" with no answer. This scaffold encodes the patterns that prevented those failures on the project it was extracted from.
 
-The methodology is described in more depth in [`docs/workflow-philosophy.md`](./docs/workflow-philosophy.md).
+The methodology is described in more depth in [`docs/workflow-philosophy.md`](./docs/workflow-philosophy.md). The trusted-MCP integration policy is in [`docs/integrations.md`](./docs/integrations.md).
 
 ---
 

@@ -1,0 +1,65 @@
+{
+  "_comment": "Example MCP server configuration. Copy this file to .mcp.json (gitignored) and authenticate each connector via its OAuth flow on first use. Only enable the entries the team actually needs — read docs/integrations.md before adding more.",
+
+  "_authoritative_pm_tool": "document",
+  "_authoritative_pm_tool_options": [
+    "document — pm/backlog.md is the source of truth (default)",
+    "linear — Linear is the source of truth; pm/backlog.md is regenerated",
+    "jira — Jira is the source of truth; pm/backlog.md is regenerated",
+    "notion — Notion database is the source of truth; pm/backlog.md is a reference"
+  ],
+
+  "mcpServers": {
+
+    "linear": {
+      "_enabled": false,
+      "_docs": "https://linear.app/docs/mcp",
+      "_use": "Backlog ticket source-of-truth or mirror; orchestrator can list/update issues.",
+      "url": "https://mcp.linear.app/sse",
+      "auth": "oauth"
+    },
+
+    "atlassian": {
+      "_enabled": false,
+      "_docs": "https://www.atlassian.com/platform/remote-mcp-server",
+      "_use": "Jira (tickets) + Confluence (pages); single OAuth covers both.",
+      "_endpoint_note": "Legacy /sse endpoint deprecates 2026-06-30. Use /mcp/authv2.",
+      "url": "https://mcp.atlassian.com/v1/mcp/authv2",
+      "auth": "oauth"
+    },
+
+    "notion": {
+      "_enabled": false,
+      "_docs": "https://developers.notion.com/guides/mcp/get-started-with-mcp",
+      "_use": "Docs / decision log mirror; pages and databases.",
+      "url": "https://mcp.notion.com/mcp",
+      "auth": "oauth"
+    },
+
+    "slack": {
+      "_enabled": false,
+      "_docs": "https://docs.slack.dev/ai/slack-mcp-server/",
+      "_use": "Outbound dispatch summaries from the orchestrator. Don't scrape Slack for ticket state.",
+      "url": "https://slack.com/api/mcp",
+      "auth": "oauth"
+    },
+
+    "github": {
+      "_enabled": false,
+      "_docs": "https://github.com/github/github-mcp-server",
+      "_use": "Structured GitHub access; complement to gh CLI for PR/issue/CI orchestration.",
+      "_self_host": "Can also be self-hosted. See repo for instructions.",
+      "url": "https://api.githubcopilot.com/mcp",
+      "auth": "oauth"
+    },
+
+    "figma": {
+      "_enabled": false,
+      "_docs": "Figma Dev Mode in-app docs",
+      "_use": "Design system + screen sources for the Designer and Frontend personas.",
+      "url": "stdio:figma-mcp-server",
+      "auth": "oauth"
+    }
+
+  }
+}
