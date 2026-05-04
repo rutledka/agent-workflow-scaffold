@@ -1,6 +1,10 @@
 # Worktree directories — never committed; the underlying branches live on origin
 .worktrees/
 
+# MCP server config — the example file (.mcp.example.json) is committed;
+# the active .mcp.json may carry session state and must NOT be committed.
+.mcp.json
+
 # Common per-language ignores below — the scaffold ships a minimal set;
 # add more as needed for your stack.
 

@@ -102,6 +102,8 @@ Files always written:
 | `templates/docs/README.md` | `<project>/docs/README.md` | `{{PROJECT_NAME}}` |
 | `templates/docs/adr/0000-template.md` | `<project>/docs/adr/0000-template.md` | none |
 | `templates/docs/dispatch-logs/.gitkeep` | `<project>/docs/dispatch-logs/.gitkeep` | none |
+| `templates/mcp.example.json` | `<project>/.mcp.example.json` | none — but mark which integrations are enabled in Step 4b |
+| `templates/integrations.md` *(if any integration enabled)* | `<project>/docs/integrations.md` | none |
 
 Files written conditionally (per Step 2 Q5):
 
@@ -124,6 +126,44 @@ Based on the primary stack the user gave in Step 2 Q4, ask only the relevant que
 For each "yes" answer, append a one-line rule to the `## Project-specific rules` section at the bottom of `CLAUDE.md`. Reference the file path or tool the rule applies to. Keep each rule to one or two sentences — these are merge-blockers, not essays.
 
 If the user is unsure about a question, default to "yes" (rules are easier to relax than to introduce later) and tell the user they can edit `CLAUDE.md` to remove a rule any time.
+
+### Step 4b — Ask integration questions and configure trusted MCPs
+
+Ask which **vendor-official, OAuth-secured MCP integrations** the team uses. The full list and the trust criteria are in `templates/integrations.md` (which becomes `docs/integrations.md` in the user's project once any integration is enabled). Limit recommendations to vendor-published, OAuth-secured connectors — never recommend community / unofficial MCPs from this skill.
+
+Ask in a single message:
+
+```
+Which trusted MCP integrations should I wire into .mcp.example.json?
+
+  1) Linear            — backlog ticket source / mirror               (Y/n)
+  2) Atlassian (Jira + Confluence)                                    (Y/n)
+  3) Notion            — docs / decision log mirror                   (Y/n)
+  4) Slack             — outbound dispatch summaries                  (Y/n)
+  5) GitHub MCP        — structured PR/issue access (complement to gh CLI) (Y/n)
+  6) Figma             — design system + screen sources               (Y/n)
+
+For Linear / Jira / Notion: which is the AUTHORITATIVE PM source?
+  a) The pm/backlog.md document (default — tools mirror the doc)
+  b) Linear / Jira / Notion (the doc mirrors the tool)
+```
+
+For each "yes":
+
+1. Set `_enabled: true` for that entry in the `.mcp.example.json` file before writing it to the user's project.
+2. Add a one-line "Integration: <Tool> via official MCP" entry to the `## Repository context` section in `agents/orchestrator.md`. Include the documentation URL.
+3. If the integration affects coding rules (e.g., "PR description must include the Linear issue ID"), append a rule to the **Project-specific rules** section in `CLAUDE.md`.
+4. Copy `docs/integrations.md` from the skill's `templates/` directory into the user's `docs/integrations.md`.
+
+For the authoritative-PM-source answer:
+- Set `_authoritative_pm_tool` in `.mcp.example.json` to the chosen value (`document` | `linear` | `jira` | `notion`).
+- If the user picked a tool (b), add a note at the top of `pm/backlog.md` saying "This document mirrors <Tool>; <Tool> is the source of truth."
+
+**Important — what this skill does NOT do:**
+
+- Does **not** modify the user's personal MCP config (`~/.claude/`-level files). The user authenticates each connector themselves via OAuth on first invocation. Tell them: "Claude Code will prompt you to authenticate each enabled MCP on first use."
+- Does **not** commit `.mcp.json`. Only `.mcp.example.json` is checked in. The `.mcp.json` working file is gitignored.
+- Does **not** recommend community / unofficial MCPs from this scaffold. If the user asks for one not on the list, tell them to evaluate vendor-official status before adopting and that this skill only ships vetted recommendations.
 
 ### Step 5 — Bootstrap memory
 
