@@ -1,0 +1,89 @@
+# {{PROJECT_NAME}} — Claude Code Guidelines
+
+## Repository
+- Remote: `git@github.com:{{REPO_OWNER_REPO}}.git`
+- Default branch: `main`
+- Primary stack: {{PRIMARY_STACK}}
+
+## Git Workflow — MANDATORY for all agents
+
+This applies to **every agent** — including the primary Claude Code session, spawned sub-agents, and any automated pipeline. **No direct commits to `main`, ever.**
+
+### Rule: Work in a worktree, ship via pull request
+
+1. **Create a worktree** for every task. Worktrees live inside the repo at `.worktrees/<branch-name>/` (gitignored) — never as a sibling of the repo:
+   ```
+   git worktree add .worktrees/<branch-name> -b <branch-name>
+   ```
+   Branch naming: `<agent-role>/<short-description>` — e.g. `frontend/login-form`, `backend/upload-endpoint`. If the branch name contains a `/`, the path nests naturally (e.g. `.worktrees/frontend/login-form/`).
+
+2. **Make all changes inside the worktree.** Never edit files in the main working tree while a task is in progress.
+
+3. **Commit inside the worktree** with a clear, descriptive message. Reference epic/ticket IDs where applicable (e.g. `EPIC-03-T01: add login form scaffold`).
+
+4. **Push the branch** to origin:
+   ```
+   git push -u origin <branch-name>
+   ```
+
+5. **Open a pull request** using `gh pr create`. PR title format: `[EPIC-XX] Short description` (or `[area] Short description` for non-ticket work). Include a summary of what changed and a testing checklist in the body. **A task is not complete until the PR is open.**
+
+6. **Report the PR URL** to the user so they can review it.
+
+7. **Remove the worktree once the PR is open.** The branch lives on origin and is preserved by the open PR — the local worktree directory is no longer needed:
+   ```
+   git worktree remove .worktrees/<branch-name>
+   ```
+
+8. **Do not merge your own PR.** Leave it open for review unless the user explicitly asks you to merge.
+
+### Commit message style
+- Imperative mood: `add`, `fix`, `refactor`, `remove` — not `added`, `fixed`.
+- Reference epic/ticket IDs where applicable: `EPIC-03-T02: integrate login flow`.
+- Keep subject line under 72 characters.
+
+### Hard rules — no exceptions
+
+**Git safety**
+- Never use `--no-verify`. If a hook fails, fix the underlying issue.
+- Never force-push (`--force` or `--force-with-lease`) to `main` or any branch another agent is working on.
+- Never commit secrets, API keys, tokens, or credentials — not even in tests or fixtures.
+
+**PRs**
+- One concern per PR. Don't bundle a feature with a refactor or an unrelated fix.
+- Delete the branch after the PR is merged.
+
+**Decisions**
+- Load-bearing decisions (architecture choices, framework selection, schema structure, auth model) go into a numbered ADR in `docs/adr/`, not into chat or commit messages. ADR template: `docs/adr/0000-template.md`.
+
+## Project Structure
+
+```
+agents/     — agent persona definitions (role-specific system prompts; not deployed code)
+docs/       — technical documents, ADRs, dispatch logs
+pm/         — product backlog, roadmap, management notes
+```
+
+## Key Documents
+- `pm/backlog.md` — milestones, epics, tickets (source of truth for delivery)
+- `pm/management.md` — leadership-readable plan: scope, RACI, decision log, risk register
+- `pm/roadmap.md` — milestone roadmap
+- `docs/adr/` — Architecture Decision Records (one file per decision)
+- `docs/dispatch-logs/` — orchestrator audit trail (`YYYY-MM-DD.md` per run)
+
+## Project-specific rules
+
+<!--
+Rules below are added by the user during scaffolding (or later, by editing this file).
+Each rule should be one or two sentences and should be enforceable in code review.
+
+Examples (add only the ones that apply to this project):
+- All route handlers must validate inputs with Zod before touching the database or calling external services. No raw `req.body` access.
+- No `console.log`, `console.warn`, or `console.error` in `src/` code. Use the structured logger.
+- Run `npm run typecheck && npm test` in the affected package before pushing. Do not push code that fails either check.
+- DB migrations are additive-only. Never drop columns, rename columns, or change column types in an existing migration. Destructive schema changes require two PRs.
+- Any change to a request/response shape, new route, or removed route must update `docs/api-specification.md` in the same PR.
+- TypeScript strict mode is enforced. Never use `// @ts-ignore` or `// @ts-expect-error` without a comment explaining the specific compiler bug.
+-->
+
+*(none yet — populate during scaffolding or as conventions emerge)*

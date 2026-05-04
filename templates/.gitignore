@@ -1,0 +1,39 @@
+# Worktree directories — never committed; the underlying branches live on origin
+.worktrees/
+
+# Common per-language ignores below — the scaffold ships a minimal set;
+# add more as needed for your stack.
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+
+# Local environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Node (uncomment if applicable)
+# node_modules/
+# dist/
+# build/
+# coverage/
+# *.tsbuildinfo
+
+# Python (uncomment if applicable)
+# __pycache__/
+# *.py[cod]
+# .venv/
+# venv/
+# .pytest_cache/
+# .mypy_cache/
+# .ruff_cache/
+# *.egg-info/
+
+# Go (uncomment if applicable)
+# bin/
+# vendor/
