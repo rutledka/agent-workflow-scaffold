@@ -709,7 +709,9 @@ Wait for answers. Partial answers are OK.
 
 #### 5b-API.2 — Generate the API skill + .env hooks
 
-Substitute the answers into the API template, write to `skills/pm-<tool-slug>-<project-slug>/SKILL.md`, and edit `.env.example` / `.env`:
+Substitute the answers into the API template, write to `skills/pm-<tool-slug>-<project-slug>/SKILL.md`, and edit `.env.example` / `.env`.
+
+##### Append the empty token slot to `.env.example`
 
 ```bash
 # Append to .env.example (create if missing)
@@ -717,15 +719,47 @@ echo "" >> .env.example
 echo "# {{PM_TOOL_NAME}} personal access token (5b-API)" >> .env.example
 echo "# Generate at: {{PM_TOOL_TOKEN_GENERATION_URL}}" >> .env.example
 echo "{{PM_TOOL_AUTH_ENV_VAR}}=" >> .env.example
+```
 
-# If .env exists, append the same empty slot — DO NOT write a token value
-if [ -f .env ]; then
-  echo "" >> .env
-  echo "{{PM_TOOL_AUTH_ENV_VAR}}=" >> .env
+##### Append the empty token slot to `.env` if it exists — with edge-case handling
+
+A naive `echo >> .env` corrupts the file in several real-world cases. Run these checks **before** appending; if any fails, skip the auto-append and surface the manual step in Step 9's summary instead.
+
+```bash
+if [ -e .env ]; then
+  # 1. Symlink — don't auto-write through it. The target may live in a
+  #    secrets store (1Password CLI agent, system keychain export) the user
+  #    doesn't want a stray echo to touch.
+  if [ -L .env ]; then
+    echo "SKIP: .env is a symlink to $(readlink .env). Add {{PM_TOOL_AUTH_ENV_VAR}}= manually."
+    skip_env_append=true
+
+  # 2. git-crypt encrypted — the file starts with the magic bytes
+  #    \x00GITCRYPT and isn't valid plaintext at scaffold time. Appending
+  #    raw bytes corrupts the file. The user must decrypt, edit, re-encrypt.
+  elif head -c 9 .env | od -An -c | grep -q "G I T C R Y P T"; then
+    echo "SKIP: .env is git-crypt encrypted. Decrypt, add {{PM_TOOL_AUTH_ENV_VAR}}=, re-encrypt."
+    skip_env_append=true
+
+  # 3. Read-only — no write permission. The user may have set this on purpose.
+  elif [ ! -w .env ]; then
+    echo "SKIP: .env is read-only. chmod and add {{PM_TOOL_AUTH_ENV_VAR}}= manually if appropriate."
+    skip_env_append=true
+
+  # 4. CRLF line endings — appending LF mid-CRLF breaks parsers. Detect and
+  #    match the existing file's line-ending shape.
+  elif [ "$(file .env | grep -c CRLF)" = "1" ]; then
+    printf '\r\n# {{PM_TOOL_NAME}} personal access token\r\n{{PM_TOOL_AUTH_ENV_VAR}}=\r\n' >> .env
+  else
+    # Standard case — LF line endings, regular file, writable, plaintext.
+    printf '\n# {{PM_TOOL_NAME}} personal access token\n{{PM_TOOL_AUTH_ENV_VAR}}=\n' >> .env
+  fi
 fi
 ```
 
 Verify `.env` is in `.gitignore` (the universal template puts it there; flag if it's missing).
+
+If any of the four edge-case checks tripped, surface the file under Step 9's `Files written` section as a "manual step required" entry, not a silent failure: "**Manual step:** add `{{PM_TOOL_AUTH_ENV_VAR}}=<your-token>` to `.env` (skipped because `<reason>`)."
 
 #### Path 5b-MCP — for tools with a vendor MCP
 
