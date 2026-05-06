@@ -8,11 +8,11 @@ Personas in `agents/*.md` declare the Claude Code skills they depend on via the 
 
 Skills resolve from three locations, in order:
 
-1. **Claude Code plugin marketplace** — namespaced like `<plugin>:<skill>` (e.g. `figma:figma-use`). Installed via `/plugin install <plugin>` from inside Claude Code.
-2. **User-scoped:** `~/.claude/skills/<skill-name>/` — available in every Claude Code session for that user. Typically a `git clone` of a skill repo.
-3. **Project-scoped:** `.claude/skills/<skill-name>/` (relative to repo root) — committed with the project, available only when running inside the project. Usually a `git submodule` or `git clone`.
+1. **Plugin marketplace** — namespaced like `<plugin>:<skill>` (e.g. `figma:figma-use`). Installed via `/plugin install <plugin>` from inside Claude Code.
+2. **User-scoped:** `~/.claude/skills/<skill-name>/` — available in every Claude Code session for that user. Typically a `git clone` of a skill repo. (Other AI agent platforms have their own user-scoped paths; see `skills/README.md` for the cross-tool table.)
+3. **Project-scoped:** `skills/<skill-name>/` at the repo root — committed with the project, available when running inside the project. Vendor-neutral path; Claude Code reads via the `.claude/skills` → `../skills` symlink the scaffold sets up in Step 4a. Usually a `git submodule` or `git clone`.
 
-Claude Code automatically lists available skills in every session's system prompt. If a persona's `required_skills` entry doesn't appear there, it isn't installed.
+Claude Code automatically lists available skills in every session's system prompt. If a persona's `required_skills` entry doesn't appear there, it isn't installed. Other agent platforms with skill / context-pack support read the same `skills/` directory directly (no symlink needed for them).
 
 ## How to read a registry entry
 
@@ -20,7 +20,7 @@ Each entry below has:
 
 - **Name** — the exact string that goes in `required_skills:` and the string Claude Code surfaces in `<available-skills>`.
 - **Source** — `plugin` (Claude Code marketplace plugin), `git` (clone or submodule from a public repo), `builtin` (ships with Claude Code; nothing to install), or `private` (lives in a non-public location; the team handles distribution itself).
-- **Install** — the canonical command. Pick `user` (clone to `~/.claude/skills/`) or `project` (submodule into `.claude/skills/`) flavor as appropriate.
+- **Install** — the canonical command. Pick `user` (clone to `~/.claude/skills/`) or `project` (submodule into `skills/` — Claude Code finds it via the `.claude/skills` symlink set up by the scaffold).
 - **Docs** — link to the skill's source / docs.
 
 ## Registry
@@ -38,7 +38,7 @@ The scaffold itself — the source of these personas. A persona that wants to re
 - **Install (project-scoped, recommended for teams):**
   ```sh
   git submodule add git@github.com:rutledka/agent-workflow-scaffold.git \
-    .claude/skills/agent-workflow-scaffold
+    skills/agent-workflow-scaffold
   git commit -m "tooling: add agent-workflow-scaffold skill"
   ```
 - **Docs:** <https://github.com/rutledka/agent-workflow-scaffold>

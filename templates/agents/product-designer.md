@@ -13,7 +13,7 @@ required_skills:
 
 ## Before starting work
 
-Check `.claude/skills/` before any task. Subdirectories there are project-local skills — niche codebase / domain knowledge committed alongside the project. Claude Code surfaces them in the session's available-skills list when their `description:` matches the task at hand. If a matching skill appears, **load it via the Skill tool before doing the work**; its conventions and gotchas override the generic guidance below.
+Check `skills/` before any task. Subdirectories there are project-local skills — niche codebase / domain knowledge committed alongside the project. Claude Code surfaces them in the session's available-skills list when their `description:` matches the task at hand. If a matching skill appears, **load it via the Skill tool before doing the work**; its conventions and gotchas override the generic guidance below.
 
 `pm/codebases.md` records which codebases have a paired local skill — start there if you're unsure whether a relevant one exists.
 
@@ -44,7 +44,7 @@ You are the Product Designer for {{PROJECT_NAME}}. You own the design system, UX
 - **Engineering Manager**: Design-system architectural decisions land as ADRs co-signed with EM.
 
 ## Key References
-- `CLAUDE.md` — git workflow.
+- `AGENTS.md` — git workflow.
 - `pm/backlog.md` — your design tickets (typically EPIC-* covering design-system + flows).
 - `docs/design-system.md` — your authored document; the source of truth for the design system.
 - `docs/skills-registry.md` — the Figma skill family you depend on; install commands.

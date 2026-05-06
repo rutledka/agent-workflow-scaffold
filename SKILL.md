@@ -1,6 +1,6 @@
 ---
 name: agent-workflow-scaffold
-description: Scaffold a multi-agent workflow into a new or existing project — agent personas, PM artifacts (backlog/management/roadmap), CLAUDE.md rules, ADR + dispatch-log structure, and starter user memories. Triggered when the user wants to set up a multi-agent project, install agent personas, or bring this workflow methodology into a new repo. Asks the user a few scoping questions, then writes templated files into the repo and bootstraps memory. Designed to be `git submodule`'d or `curl`'d into projects.
+description: Scaffold a multi-agent workflow into a new or existing project — agent personas, PM artifacts (backlog/management/roadmap), AGENTS.md rules, ADR + dispatch-log structure, and starter user memories. Triggered when the user wants to set up a multi-agent project, install agent personas, or bring this workflow methodology into a new repo. Asks the user a few scoping questions, then writes templated files into the repo and bootstraps memory. Designed to be `git submodule`'d or `curl`'d into projects.
 ---
 
 # Agent Workflow Scaffold
@@ -11,7 +11,7 @@ You are scaffolding a multi-agent project workflow into the user's current worki
 
 A repo that is set up so that:
 
-- **Every task moves through a worktree → PR**, never directly to `main` (rules in `CLAUDE.md`).
+- **Every task moves through a worktree → PR**, never directly to `main` (rules in `AGENTS.md`).
 - **Each role is a persona file in `agents/`** that you (Claude) can adopt as a system prompt — Orchestrator, Project Manager, Engineering Manager, Backend, Frontend, QA, plus optional ones the user picks.
 - **The Orchestrator persona is a runnable dispatch loop** — it reads the backlog and open PRs, decides what each agent works on next, and writes a dispatch log to `docs/dispatch-logs/YYYY-MM-DD.md`. This is the keystone of the system.
 - **PM artifacts live in `pm/`** — `backlog.md` (milestones / epics / tickets), `management.md` (RACI + decision log + risk register), `roadmap.md`. They cross-link to each other.
@@ -24,15 +24,27 @@ This skill's repo contains a `templates/` directory. Each file is the source of 
 
 ```
 templates/
-├── CLAUDE.md                          # universal rules subset (incl. multi-codebase PR rule + local-skills rule)
+├── AGENTS.md                          # universal rules subset (incl. multi-codebase PR rule + local-skills rule).
+│                                      #   Vendor-neutral filename per agents.md convention. The scaffold
+│                                      #   creates a CLAUDE.md → AGENTS.md symlink in Step 4a so Claude
+│                                      #   Code finds it without a parallel file.
 ├── .gitignore                         # adds .worktrees/
-├── .claude/
-│   └── skills/
-│       ├── README.md                  # explains project-local skill convention
-│       └── codebase-skill-template/   # template the scaffold copies + customizes (Step 2b.7a)
-│           └── SKILL.md
+├── skills/                            # project-local skills live here (vendor-neutral path).
+│   │                                  #   The scaffold creates .claude/skills → ../skills symlink in
+│   │                                  #   Step 4a so Claude Code's skill loader finds them without
+│   │                                  #   moving content.
+│   ├── README.md                      # explains project-local skill convention
+│   ├── codebase-skill-template/       # template the scaffold copies + customizes (Step 2b.7a)
+│   │   └── SKILL.md
+│   ├── pm-skill-template/             # template the scaffold copies + customizes (Step 5b-MCP)
+│   │   └── SKILL.md                   # for Linear / Jira / Notion / GitHub PM-tool wiring
+│   └── pm-skill-api-template/         # API-based PM skill template (Step 5b-API)
+│       └── SKILL.md                   # for Asana / Trello / Monday / ClickUp / Shortcut / etc.
 ├── agents/
 │   ├── orchestrator.md                # the dispatch loop — proposed by default in Step 3
+│   ├── personal-assistant.md          # multi-horizon goal tracker; READ-ONLY email + team-comms;
+│   │                                  #   nudges on stalls; prompts user before agent dispatch.
+│   │                                  #   Proposed by default in Step 3 (user can opt out).
 │   ├── project-manager.md             # proposed when discovery indicates PM work
 │   ├── engineering-manager.md         # proposed when discovery indicates EM work
 │   ├── backend-engineer.md            # proposed when discovery indicates server-side work
@@ -44,13 +56,16 @@ templates/
 │   ├── pilot-lead.md                  # proposed when discovery mentions pilot / launch ops
 │   ├── custom-skeleton.md             # filled in for off-list ROLES (e.g. Growth Lead). NOT
 │   │                                  #   used for codebase-niche knowledge — that goes into
-│   │                                  #   .claude/skills/<codebase-slug>/SKILL.md instead.
+│   │                                  #   skills/<codebase-slug>/SKILL.md instead.
 │   └── README.md                      # the persona-file convention + frontmatter docs
 ├── pm/
-│   ├── backlog.md
+│   ├── backlog.md                     # rich, file-based source of truth (used when no PM tool)
+│   ├── backlog-pointer.md             # thin pointer doc (used when PM tool is configured, Step 5b)
 │   ├── management.md
 │   ├── roadmap.md
 │   ├── codebases.md                   # multi-codebase registry (Step 2b); points at local skills
+│   ├── goals.md                       # Personal Assistant's multi-horizon goal tracker
+│   ├── assistant-log.md               # Personal Assistant's append-only audit log
 │   └── README.md
 ├── docs/
 │   ├── README.md
@@ -65,7 +80,9 @@ templates/
     ├── feedback-worktree-pr-discipline.md
     ├── feedback-document-version-history.md
     ├── feedback-decisions-via-adr.md
-    └── user-prefer-concrete-comparisons.md
+    ├── user-prefer-concrete-comparisons.md
+    └── personal-assistant-context.md  # private user memory for the Personal Assistant
+                                       # persona; only seeded if persona is confirmed
 ```
 
 Persona files are **not all generated by default**. Step 2's discovery interview + Step 3's synthesis decide which off-the-shelf templates to use, which `custom-skeleton.md` instances to author, and which to skip entirely. A solo founder's project might end up with three personas (orchestrator, founder, custom-design-lead); a 12-person team's project might end up with all eleven.
@@ -81,7 +98,7 @@ When the user invokes you, follow these steps in order. Do not skip any. The flo
 Read the current working directory. Determine:
 
 1. Is this a git repo already (`.git/` exists)? If not, recommend the user run `git init` first, but offer to scaffold anyway and remind them at the end.
-2. Does the project already have any of `CLAUDE.md`, `agents/`, `pm/`, or `docs/dispatch-logs/`? If yes, **stop and ask the user how to proceed** — overwrite, merge, or abort. Don't blindly overwrite their existing artifacts.
+2. Does the project already have any of `AGENTS.md`, `agents/`, `pm/`, or `docs/dispatch-logs/`? If yes, **stop and ask the user how to proceed** — overwrite, merge, or abort. Don't blindly overwrite their existing artifacts.
 
 ### Step 2 — Discovery interview
 
@@ -118,8 +135,21 @@ About your project:
    to suggest personas for collaborators, not just yourself.
 
 About your tools:
-9) Which of these does the team actively use? (Linear / Jira / Notion /
-   Slack / GitHub / Figma / Datadog / something else)
+9a) Project-management source of truth — pick one. This decides whether
+    pm/backlog.md is the live ticket list or a thin pointer doc, and
+    how agents read / write the backlog:
+      - Linear         (vendor-official MCP)
+      - Jira / Atlassian Cloud (vendor-official MCP)
+      - Notion (database-backed PM)  (vendor-official MCP)
+      - GitHub Issues / Projects     (GitHub MCP, complements `gh`)
+      - Asana / Trello / Monday / ClickUp / Shortcut / Pivotal / etc.
+        (no vendor MCP, but I'll wire the tool's REST/GraphQL API as
+        a project-local skill — you'll add a personal access token
+        to `.env`)
+      - Files only — pm/backlog.md is the source of truth (default if
+        you skip; great for solo / pre-team / small projects)
+9b) Other tools the team actively uses (for non-PM integrations):
+    Slack / Figma / Datadog / something else?
 10) Any specialty workflows? (e.g. AR/SLAM, ML training, mobile native,
     regulatory compliance, multi-cloud DR, payments / Stripe, on-call rota)
 11) First milestone — name + target. (e.g. "M0 Foundation, end of W3",
@@ -136,13 +166,27 @@ About your codebases:
     AR/SLAM rendering pipelines, FPGA toolchains, ML training
     infrastructure, embedded firmware, regulatory-specific code.
     "No, the standard personas cover it" is a fine answer.
+
+About your AI coding tools:
+14) Which AI coding tools does the team use? (Pick all that apply;
+    determines which per-tool symlinks/configs Step 4a creates so
+    AGENTS.md and skills/ are findable by every tool without
+    parallel files.)
+      - Claude Code              (always wired by default)
+      - OpenCode
+      - GitHub Copilot
+      - Cline
+      - Cursor
+      - Aider
+      - Continue
+      - Other (specify; scaffold will document but not auto-wire)
 ```
 
 Wait for answers before doing anything else. If the user gives a partial answer — e.g. only items 1, 3, 6, 7, 12 — that's fine; proceed with what you have and infer rather than re-asking.
 
 ### Step 2b — Codebase setup (run once per codebase listed in Q12)
 
-Before synthesizing the persona proposal in Step 3, walk each codebase the user listed and gather the operational context the agents will need at dispatch time. Skip this step entirely if the user said "none yet" in Q12 (i.e. the project itself is the only codebase, and the standard worktree-and-PR rules from `CLAUDE.md` cover it).
+Before synthesizing the persona proposal in Step 3, walk each codebase the user listed and gather the operational context the agents will need at dispatch time. Skip this step entirely if the user said "none yet" in Q12 (i.e. the project itself is the only codebase, and the standard worktree-and-PR rules from `AGENTS.md` cover it).
 
 For each codebase the user listed, perform these checks **in order**, then aggregate the results into a `pm/codebases.md` entry plan that you'll write in Step 4.
 
@@ -261,7 +305,7 @@ On `n` or `skip`, record nothing — the libraries legitimately coexist or the u
 
 #### 2b.7 — Decide whether the codebase warrants a project-local skill
 
-Niche codebase knowledge belongs in a **project-local skill** under `.claude/skills/<codebase-slug>/`, not in a separate persona. Roles describe *what someone does*; skills describe *technical knowledge for doing the thing*. Treat codebase-specific gotchas, conventions, and niche-tech overviews as the latter.
+Niche codebase knowledge belongs in a **project-local skill** under `skills/<codebase-slug>/`, not in a separate persona. Roles describe *what someone does*; skills describe *technical knowledge for doing the thing*. Treat codebase-specific gotchas, conventions, and niche-tech overviews as the latter.
 
 Use best judgement against the user's answer to Q13 and the inventory from 2b.5 to decide whether to draft a local skill for this codebase. Surface a *suggestion* to the user — don't auto-create.
 
@@ -280,7 +324,7 @@ Heuristics for "no, standard personas cover it via the codebase's tech inventory
 
 #### 2b.7a — Draft the local skill (only if 2b.7 said "yes")
 
-If a local skill is warranted, scaffold it at `.claude/skills/<codebase-slug>/SKILL.md` from the template at `templates/.claude/skills/codebase-skill-template/SKILL.md`. Substitutions:
+If a local skill is warranted, scaffold it at `skills/<codebase-slug>/SKILL.md` from the template at `templates/skills/codebase-skill-template/SKILL.md`. Substitutions:
 
 - `{{SKILL_NAME}}` — the `<codebase-slug>` (matches the directory name).
 - `{{SKILL_DESCRIPTION}}` — a one-sentence trigger description Claude Code uses to decide when to load the skill. Example: `Niche knowledge for the AR-graffiti-api codebase: 8th Wall SLAM gotchas, ENU coordinate conventions, the postgis/postgis:17-3.5 spinlock workaround, the AR-216 idempotent-shutdown pattern. Load before any task that touches files in /Users/khalil/Code/ar-graffiti-api or its subtree.`
@@ -291,7 +335,7 @@ If a local skill is warranted, scaffold it at `.claude/skills/<codebase-slug>/SK
 
 The drafted skill is **a starting point**. Tell the user: "I've drafted `<path>/SKILL.md` with what I could infer from the scan. Open it, edit anything wrong, and add the gotchas only humans know about — I can't infer 'this thing crashed prod last quarter' from a file scan."
 
-The codebase's `pm/codebases.md` entry records the path to the local skill (a new field `**Project-local skill**: .claude/skills/<codebase-slug>/SKILL.md`) so personas can find it without searching. If 2b.7 said "no, standard personas cover it", the field is empty and the codebase is owned by existing personas.
+The codebase's `pm/codebases.md` entry records the path to the local skill (a new field `**Project-local skill**: skills/<codebase-slug>/SKILL.md`) so personas can find it without searching. If 2b.7 said "no, standard personas cover it", the field is empty and the codebase is owned by existing personas.
 
 #### 2b.8 — Aggregate
 
@@ -300,7 +344,7 @@ After completing 2b.1 through 2b.7a for all codebases, you have:
 - A list of validated codebase paths + remote URLs + base branches + user feature branches.
 - A technology inventory per codebase with doc URLs ready to inject.
 - A list of confirmed deprecation notes per codebase.
-- A list of project-local skills drafted at `.claude/skills/<codebase-slug>/SKILL.md` (if any).
+- A list of project-local skills drafted at `skills/<codebase-slug>/SKILL.md` (if any).
 
 Carry all of this into Step 3's synthesis. The synthesis proposal now includes the codebase entries the user will see, the local skills drafted, and the standard personas that own each codebase (no codebase-niche personas — niche knowledge lives in the local skills instead).
 
@@ -332,11 +376,13 @@ For each proposed persona include:
 
 The **Orchestrator** persona is included by default — it's the keystone of the workflow. Surface it explicitly in the proposal so the user can opt out, but flag that opting out makes most of the workflow's value disappear (the orchestrator is what runs the dispatch loop).
 
+The **Personal Assistant** persona is also included by default. Unlike Orchestrator, this one is about the *user* rather than the project — it tracks the user's goals across multiple time horizons (Daily / Weekly / Monthly / Quarterly / Annual), reads the user's email + team-comms feeds (read-only, via vendor MCPs the scaffold wires in Step 6), surfaces nudges when goals stall, and prompts the user before assigning any agent-scope task. It keeps a private user-scoped memory file (`personal-assistant-context.md`) of need-to-knows specific to its scope (working preferences, people-in-orbit, recurring obligations, never-assignable categories). Surface it explicitly so the user can opt out — solo founders without team-comms or users who don't want this kind of nudge layer will skip it.
+
 The **Project Manager** and **Engineering Manager** are common-but-not-universal. Default to including both, but check the discovery — if the user is a solo founder who runs PM and EM in their head, two personas is overkill; merge them into one "Founder" persona via `custom-skeleton.md` instead.
 
 If the user mentions a role that doesn't match any template — e.g. "Growth Lead", "Customer Success", "ML Researcher", "Data Engineer", "Security Engineer" — propose a `custom-skeleton.md`-based persona for it. Author the role paragraph + working patterns from the discovery answer rather than inventing them.
 
-**Don't propose codebase-niche personas.** Niche codebase knowledge (8th Wall SLAM, Unity, FPGA toolchains, etc.) goes into a project-local skill at `.claude/skills/<codebase-slug>/` — see Step 2b.7a. Personas are about *roles*; skills are about *technical knowledge*. The standard personas plus the matching local skill are the right shape.
+**Don't propose codebase-niche personas.** Niche codebase knowledge (8th Wall SLAM, Unity, FPGA toolchains, etc.) goes into a project-local skill at `skills/<codebase-slug>/` — see Step 2b.7a. Personas are about *roles*; skills are about *technical knowledge*. The standard personas plus the matching local skill are the right shape.
 
 #### 3b. MCP integration shortlist
 
@@ -354,9 +400,19 @@ If a tool the user listed doesn't have a vendor-official MCP, say so explicitly 
 For each proposed persona, look at its template's `required_skills:` frontmatter (and any additional skills implied by the user's answers — e.g. a Backend Engineer who mentioned "Anthropic SDK" implies the `claude-api` skill). Cross-reference against `templates/docs/skills-registry.md`. Group skills by install method:
 
 - **Plugin** — install via `/plugin install <plugin>` from inside Claude Code (figma family, etc.).
-- **Git** — install via `git clone` to `~/.claude/skills/` (user-scoped) or `git submodule add` to `.claude/skills/` (project-scoped).
+- **Git** — install via `git clone` to `~/.claude/skills/` (user-scoped) or `git submodule add` to `skills/` (project-scoped).
 - **Builtin** — already shipped with Claude Code; nothing to install.
 - **Private** — placeholder URL in registry; user must substitute the team-private URL.
+
+#### 3c-bis. PM-tool plan
+
+Based on Q9a, summarize the project-management plan in one of three modes:
+
+- **Mode A — PM tool with vendor MCP** (Linear / Jira / Notion / GitHub Issues): tell the user the scaffold will (1) generate `pm/backlog.md` as a thin pointer doc rather than the rich template, (2) draft a project-local PM skill at `skills/pm-<tool>-<project-slug>/SKILL.md` (from `pm-skill-template`) that captures workspace + label conventions, (3) auto-enable the PM-tool MCP in `.mcp.example.json`, and (4) add two `## Project-specific rules` to `AGENTS.md` (PM tool is source of truth; PR titles must include the issue prefix). `pm/management.md` and `pm/roadmap.md` still ship as files since they hold strategy and leadership prose, not ticket detail.
+- **Mode B — PM tool with API but no vendor MCP** (Asana / Trello / Monday / ClickUp / Shortcut / Pivotal / etc.): tell the user the scaffold will (1) generate `pm/backlog.md` as a thin pointer doc, (2) draft a project-local PM skill at `skills/pm-<tool>-<project-slug>/SKILL.md` (from `pm-skill-api-template`) that wraps the tool's REST/GraphQL API with project-specific conventions and `curl` / fetch examples, (3) add a `<TOOL>_PERSONAL_ACCESS_TOKEN=` slot to `.env.example` (and append to `.env` if it exists, leaving it empty for the user to fill), and (4) add the same two `## Project-specific rules` to `AGENTS.md` as Mode A. The user provides their PAT on first use; the scaffold does **not** ship credentials.
+- **Mode C — Files only**: tell the user `pm/backlog.md` is the live source of truth (rich template). No PM skill is created. No `.env` mutations.
+
+Show one example of what `pm/backlog.md` will look like in their chosen mode (paraphrased — don't reproduce the full template). The user confirms or amends in 3e.
 
 #### 3d. Codebase plan summary
 
@@ -368,7 +424,7 @@ Summarize the codebase plan from Step 2b. For each codebase, show:
 - Tech inventory bullets (one line each)
 - Deprecation candidates the user confirmed (if any)
 - Owning persona(s) — point at one or more entries from 3a
-- **Project-local skill** at `.claude/skills/<codebase-slug>/SKILL.md` if Step 2b.7 surfaced one, with a one-line description of what the drafted skill contains
+- **Project-local skill** at `skills/<codebase-slug>/SKILL.md` if Step 2b.7 surfaced one, with a one-line description of what the drafted skill contains
 
 Example:
 
@@ -382,18 +438,18 @@ Codebase: api-server
   Deprecation: jsonwebtoken (added 2023-04) is deprecated in this project;
                jose (added 2025-08) is the active library.
   Owned by: Backend Engineer, Platform Engineer
-  Project-local skill: .claude/skills/ar-graffiti-api/SKILL.md
+  Project-local skill: skills/ar-graffiti-api/SKILL.md
     Drafted with: NestJS+Fastify cold-start budget, ZodValidationPipe
     pinning gotcha, postgis/postgis:17-3.5 spinlock workaround, the
     idempotent-shutdown pattern. Open it after scaffolding and add
     anything I couldn't infer from the file scan.
 ```
 
-If the user said "none yet" in Q12, omit this subsection — the project itself is the only codebase, and its base branch is the standard `main` covered in `CLAUDE.md`.
+If the user said "none yet" in Q12, omit this subsection — the project itself is the only codebase, and its base branch is the standard `main` covered in `AGENTS.md`.
 
 #### 3e. Confirmation
 
-After presenting 3a + 3b + 3c + 3d, ask the user one clear confirm-or-edit question:
+After presenting 3a + 3b + 3c + 3c-bis + 3d, ask the user one clear confirm-or-edit question:
 
 ```
 Does this look right? Reply "ship it" to generate everything as listed, or
@@ -410,10 +466,11 @@ Files **always** written (the universal subset, not persona-dependent):
 
 | Source | Destination | Substitutions |
 |---|---|---|
-| `templates/CLAUDE.md` | `<project>/CLAUDE.md` | `{{PROJECT_NAME}}`, `{{REPO_OWNER_REPO}}`, `{{PRIMARY_STACK}}` |
+| `templates/AGENTS.md` | `<project>/AGENTS.md` | `{{PROJECT_NAME}}`, `{{REPO_OWNER_REPO}}`, `{{PRIMARY_STACK}}` |
 | `templates/.gitignore` | `<project>/.gitignore` *(or appended)* | none |
 | `templates/agents/README.md` | `<project>/agents/README.md` | `{{PROJECT_NAME}}` |
-| `templates/pm/backlog.md` | `<project>/pm/backlog.md` | `{{PROJECT_NAME}}`, `{{FIRST_MILESTONE_NAME}}`, `{{FIRST_MILESTONE_TARGET}}`, `{{TODAY_ISO}}` |
+| `templates/pm/backlog.md` *(only if Q9a chose "Files only" or a no-MCP fallback tool)* | `<project>/pm/backlog.md` | `{{PROJECT_NAME}}`, `{{FIRST_MILESTONE_NAME}}`, `{{FIRST_MILESTONE_TARGET}}`, `{{TODAY_ISO}}` |
+| `templates/pm/backlog-pointer.md` *(only if Q9a chose Linear / Jira / Notion / GitHub — handled in Step 5b, listed here for completeness)* | `<project>/pm/backlog.md` | `{{PROJECT_NAME}}`, `{{FIRST_MILESTONE_NAME}}`, `{{FIRST_MILESTONE_TARGET}}`, plus all `{{PM_TOOL_*}}` and `{{PM_*}}` placeholders from 5b-MCP.2 |
 | `templates/pm/management.md` | `<project>/pm/management.md` | `{{PROJECT_NAME}}`, `{{TODAY_ISO}}` |
 | `templates/pm/roadmap.md` | `<project>/pm/roadmap.md` | `{{PROJECT_NAME}}`, `{{FIRST_MILESTONE_NAME}}`, `{{FIRST_MILESTONE_TARGET}}` |
 | `templates/pm/README.md` | `<project>/pm/README.md` | `{{PROJECT_NAME}}` |
@@ -423,8 +480,11 @@ Files **always** written (the universal subset, not persona-dependent):
 | `templates/docs/tech-docs-registry.md` | `<project>/docs/tech-docs-registry.md` | none |
 | `templates/docs/feature-overlap-registry.md` | `<project>/docs/feature-overlap-registry.md` | none |
 | `templates/pm/codebases.md` | `<project>/pm/codebases.md` | per-codebase: `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{REMOTE_URL}}`, `{{BASE_BRANCH}}`, `{{USER_FEATURE_BRANCH}}`, `{{SCAN_DATE}}`, `{{LANGUAGES}}`, `{{FRAMEWORKS}}`, `{{BUILD_TOOLING}}`, `{{INFRASTRUCTURE}}`, `{{OTHER_LIBRARIES}}`, `{{OWNING_PERSONAS}}`, `{{DOC_LINKS}}`, `{{DEPRECATION_NOTES}}`, `{{LOCAL_SKILL_PATH}}` (all from Step 2b's scan) |
-| `templates/.claude/skills/README.md` | `<project>/.claude/skills/README.md` | none |
-| `templates/.claude/skills/codebase-skill-template/SKILL.md` | *(only if Step 2b.7a drafted at least one)* `<project>/.claude/skills/<codebase-slug>/SKILL.md` per codebase | `{{SKILL_NAME}}`, `{{SKILL_DESCRIPTION}}`, `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{NICHE_TECH_OVERVIEW}}`, `{{CONVENTIONS_BULLETS}}`, `{{COMMON_GOTCHAS_BULLETS}}`, `{{INTERNAL_DOCS_LINKS}}` |
+| `templates/skills/README.md` | `<project>/skills/README.md` | none |
+| `templates/skills/codebase-skill-template/SKILL.md` | *(only if Step 2b.7a drafted at least one)* `<project>/skills/<codebase-slug>/SKILL.md` per codebase | `{{SKILL_NAME}}`, `{{SKILL_DESCRIPTION}}`, `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{NICHE_TECH_OVERVIEW}}`, `{{CONVENTIONS_BULLETS}}`, `{{COMMON_GOTCHAS_BULLETS}}`, `{{INTERNAL_DOCS_LINKS}}` |
+| `templates/skills/pm-skill-template/SKILL.md` | *(only if Q9a chose Linear / Jira / Notion / GitHub — handled in Step 5b-MCP)* `<project>/skills/pm-<tool-slug>-<project-slug>/SKILL.md` | all `{{PM_TOOL_*}}` and `{{PM_*}}` placeholders from 5b-MCP.2's substitution map |
+| `templates/skills/pm-skill-api-template/SKILL.md` | *(only if Q9a chose Asana / Trello / Monday / ClickUp / Shortcut / etc. — handled in Step 5b-API)* `<project>/skills/pm-<tool-slug>-<project-slug>/SKILL.md` | placeholders from 5b-API's substitution map (auth env-var name, API base URL, curl examples) |
+| `.env.example` *(only Step 5b-API; created if missing or appended-to)* | `<project>/.env.example` | `{{PM_TOOL_AUTH_ENV_VAR}}=` (empty value — never write a token) |
 | `templates/docs/dispatch-logs/.gitkeep` | `<project>/docs/dispatch-logs/.gitkeep` | none |
 
 Persona files written **only if** they appeared in the confirmed list from Step 3a:
@@ -442,10 +502,72 @@ Persona files written **only if** they appeared in the confirmed list from Step 
 | `templates/agents/legal-advisor.md` | `<project>/agents/legal-advisor.md` | `{{PROJECT_NAME}}` |
 | `templates/agents/pilot-lead.md` | `<project>/agents/pilot-lead.md` | `{{PROJECT_NAME}}` |
 | `templates/agents/custom-skeleton.md` | `<project>/agents/<role-slug>.md` | All `{{PERSONA_*}}`, `{{ROLE_PARAGRAPH}}`, `{{DOCUMENTS_LIST}}`, `{{BRANCH_PREFIX}}`, `{{WORKING_PATTERNS_BULLETS}}`, `{{PRIMARY_PARTNER_PERSONA}}`, etc. — populated from the discovery answers |
+| `templates/agents/personal-assistant.md` | `<project>/agents/personal-assistant.md` | `{{PROJECT_NAME}}` |
+| `templates/pm/goals.md` *(only if Personal Assistant was confirmed in 3a)* | `<project>/pm/goals.md` | `{{PROJECT_NAME}}` |
+| `templates/pm/assistant-log.md` *(only if Personal Assistant was confirmed)* | `<project>/pm/assistant-log.md` | `{{PROJECT_NAME}}` |
 
 The MCP-integration files (`templates/mcp.example.json` → `.mcp.example.json`, `templates/integrations.md` → `docs/integrations.md`) are written by Step 6 below, after the explicit MCP confirmation. The skill installs are handled by Step 7. Step 5 below handles the rules.
 
 After writing the personas, append a **Required skills** section to the bottom of `agents/README.md` (in the user's project) listing each (persona → skill) dependency in a small markdown table. This is the single readable summary a future contributor sees.
+
+#### Step 4a — Create platform-compatibility symlinks and configs
+
+Make the project's vendor-neutral file layout discoverable by every AI coding tool the team uses (Q14). All actions below are **idempotent** — they only create files when absent, never clobber existing setup. If a real file or different setup already exists at any of these paths, surface the conflict to the user and skip that step.
+
+##### 4a.1 — Always create (Claude Code support)
+
+These two symlinks ship by default regardless of Q14, because Claude Code is the scaffold's home base:
+
+```bash
+# CLAUDE.md → AGENTS.md
+[ -e CLAUDE.md ] || ln -s AGENTS.md CLAUDE.md
+
+# .claude/skills → ../skills
+mkdir -p .claude
+[ -e .claude/skills ] || ln -s ../skills .claude/skills
+```
+
+##### 4a.2 — Per-tool actions (run once per tool the user picked in Q14)
+
+The following table maps each tool to the action the scaffold takes. Most modern AI coding tools support `AGENTS.md` natively, so the action is "no-op + verify"; some need a symlink to a tool-specific filename or a small config entry.
+
+| Tool | AGENTS.md native? | Action |
+|------|-------------------|--------|
+| **OpenCode** | ✅ YES — canonical filename | No symlink. Tell the user: "OpenCode reads AGENTS.md natively; commit it to git so the team shares the rules. OpenCode also supports project-local agents at `.opencode/agents/<name>.md` if you want full subagent definitions with permissions/mode/model — different concept from Claude Code's `skills/`. See `skills/README.md` for the cross-tool table." |
+| **GitHub Copilot** | ✅ YES — proximity-based precedence | Create symlink `.github/copilot-instructions.md → ../AGENTS.md` so Copilot's repo-wide instructions resolve to the canonical source. Path-specific instructions (`.github/instructions/*.instructions.md` with `applyTo` glob frontmatter) are a different concept; document but don't auto-create. |
+| **Cline** | ✅ YES | No symlink. Tell the user: "Cline reads AGENTS.md natively. Project-local Cline rules live at `.clinerules/` (directory of `.md`/`.txt` files) — different concept from `skills/`; create those manually if you want them." |
+| **Cursor** | ✅ YES — recent versions | No symlink. Tell the user: "Modern Cursor reads AGENTS.md natively. Project rules in `.cursor/rules/*.mdc` use a different format (frontmatter with `globs` + `alwaysApply`) — different concept from `skills/`; create those manually if you want them." Verify Cursor version supports AGENTS.md (older versions used `.cursorrules`). |
+| **Aider** | ❌ NO auto-discovery | Aider doesn't auto-scan; it only reads files explicitly loaded via `/read` or `.aider.conf.yml`. Create `.aider.conf.yml` (or append if it exists) with `read: AGENTS.md`. Sample: |
+| **Continue** | ✅ YES (recent versions) | No symlink. Tell the user: "Recent Continue reads AGENTS.md natively. Custom slash-commands live in `.continue/config.json`; rules in `.continue/rules/*.md` if you use that feature." |
+
+For Aider, the config snippet to write/append:
+
+```yaml
+# .aider.conf.yml — auto-loaded by Aider sessions in this project
+read: AGENTS.md
+```
+
+If `.aider.conf.yml` already exists, append the `read:` entry to it (handle both YAML-list and YAML-scalar shapes correctly — if `read:` already lists files, add `AGENTS.md` to that list rather than duplicating the key).
+
+For GitHub Copilot, the symlink:
+
+```bash
+mkdir -p .github
+[ -e .github/copilot-instructions.md ] || ln -s ../AGENTS.md .github/copilot-instructions.md
+```
+
+##### 4a.3 — Cross-platform note
+
+Symlinks work natively on macOS and Linux. On Windows, git's `core.symlinks` config must be enabled (true by default since Git 2.10 with developer mode, but verify) — otherwise the symlink lands as a regular text file containing the target path. If the user is on Windows, flag this in the Step 9 summary and link to <https://git-scm.com/docs/git-config#Documentation/git-config.txt-coresymlinks>.
+
+##### 4a.4 — Surface what was wired
+
+After running the per-tool actions, capture the result for the Step 9 summary:
+
+- Which symlinks/configs were created (and their canonical targets).
+- Which tools were "no-op + verify" (and the version users should ensure they're on).
+- Any conflicts where a real file already existed and the scaffold skipped — list these so the user can resolve manually.
+- For each tool whose project-local "skills" equivalent has a *different* concept than `skills/<name>/SKILL.md` (Cursor's rules, Cline's rules, OpenCode's agents, Copilot's instructions), one-line note pointing at `skills/README.md`'s cross-tool table for the manual conversion.
 
 #### Codebase ↔ persona linking
 
@@ -459,7 +581,7 @@ If the user declined to create a feature branch in 2b.4 for any codebase, add a 
 
 ### Step 5 — Project-specific rules
 
-The universal `CLAUDE.md` covers git workflow, branch naming, PR discipline, secrets safety. **Project-specific rules need user input** and are derived from the primary stack the user gave in Step 2 Q7.
+The universal `AGENTS.md` covers git workflow, branch naming, PR discipline, secrets safety. **Project-specific rules need user input** and are derived from the primary stack the user gave in Step 2 Q7.
 
 Ask only the relevant questions in a single message, grouped:
 
@@ -471,13 +593,13 @@ Ask only the relevant questions in a single message, grouped:
 - **Frontend (React / Vue / etc.)** — Bundle-size budget gate? Accessibility audit gate?
 - **Mobile native** — Device-matrix QA gate before merging UI changes?
 
-For each "yes", append a one-line rule to the `## Project-specific rules` section at the bottom of `CLAUDE.md`. Reference the file path or tool the rule applies to. Keep each rule to one or two sentences — these are merge-blockers, not essays.
+For each "yes", append a one-line rule to the `## Project-specific rules` section at the bottom of `AGENTS.md`. Reference the file path or tool the rule applies to. Keep each rule to one or two sentences — these are merge-blockers, not essays.
 
-If the user is unsure about a question, default to "yes" — rules are easier to relax than to introduce later. Tell them they can edit `CLAUDE.md` to remove a rule any time.
+If the user is unsure about a question, default to "yes" — rules are easier to relax than to introduce later. Tell them they can edit `AGENTS.md` to remove a rule any time.
 
 #### Multi-codebase rules (only if Step 2b scanned at least one codebase)
 
-If `pm/codebases.md` was generated, append the following to the bottom of `CLAUDE.md`'s `## Project-specific rules` (do not paraphrase — these are load-bearing for the multi-codebase PR discipline):
+If `pm/codebases.md` was generated, append the following to the bottom of `AGENTS.md`'s `## Project-specific rules` (do not paraphrase — these are load-bearing for the multi-codebase PR discipline):
 
 ```
 - When working in any codebase listed in `pm/codebases.md`, agents MUST
@@ -491,7 +613,274 @@ If `pm/codebases.md` was generated, append the following to the bottom of `CLAUD
   to the sub-agent.
 ```
 
-These rules complement the existing "Rule: Working in *referenced* codebases" section in `CLAUDE.md`'s Git Workflow chapter (which the universal template already includes). The Project-specific rules entry serves as the merge-time merge-blocker; the Git Workflow section is the operational handbook.
+These rules complement the existing "Rule: Working in *referenced* codebases" section in `AGENTS.md`'s Git Workflow chapter (which the universal template already includes). The Project-specific rules entry serves as the merge-time merge-blocker; the Git Workflow section is the operational handbook.
+
+### Step 5b — PM-tool wiring (run unless Q9a picked "Files only")
+
+Run this step **unless** Q9a was answered "Files only" or skipped. The procedure below has two parallel paths — the **MCP path** (5b-MCP) for Linear / Jira / Notion / GitHub, and the **API path** (5b-API) for Asana / Trello / Monday / ClickUp / Shortcut / Pivotal / etc. They share most steps but differ in template choice and auth handling.
+
+The point of this step: when the user has a PM tool, **the tool becomes the source of truth for tickets**, `pm/backlog.md` is reduced to a thin pointer doc, and a project-local **PM skill** at `skills/pm-<tool>-<project-slug>/SKILL.md` captures the project-specific conventions agents need to operate the tool correctly (workspace URL, team / project name, issue prefix, label conventions for milestones / personas / quarters). The skill template differs based on whether the tool has a vendor MCP (cleaner) or only a REST/GraphQL API (rougher but workable).
+
+#### Path 5b-API — for tools without a vendor MCP
+
+Run **5b-API** when Q9a was answered with Asana / Trello / Monday / ClickUp / Shortcut / Pivotal or any other tool with a public API but no vendor-official Claude Code MCP. The differences from the MCP path:
+
+1. **Template:** use `templates/skills/pm-skill-api-template/SKILL.md` (not `pm-skill-template`).
+2. **Auth:** instead of OAuth-on-first-use, the user adds a personal access token to `.env`. The scaffold:
+   - Appends `{{PM_TOOL_AUTH_ENV_VAR}}=` (empty) to `.env.example` (creating the file if missing).
+   - Appends the same line, also empty, to `.env` if `.env` already exists; **never** writes a non-empty token.
+   - Tells the user to fill in the token from {{PM_TOOL_TOKEN_GENERATION_URL}} before any agent dispatch against the tool.
+3. **MCP wiring (Step 6) is skipped for this tool** — there's no MCP entry to flip. Other MCPs the user mentioned (Slack, Figma, etc.) still go through Step 6 normally.
+
+The substitution map for the API template covers the same `{{PM_TOOL_*}}`/`{{PM_*}}` placeholders as Mode A *plus*:
+
+| Placeholder | Source / format |
+|---|---|
+| `{{PM_TOOL_AUTH_SCHEME}}` | Tool-specific. Asana/Monday/ClickUp/Shortcut: "Bearer token via `Authorization` header". Trello: "API key + token query params". |
+| `{{PM_TOOL_AUTH_ENV_VAR}}` | Convention: `<TOOL>_PERSONAL_ACCESS_TOKEN`. E.g. `ASANA_PERSONAL_ACCESS_TOKEN`, `TRELLO_API_TOKEN`, `MONDAY_API_TOKEN`. |
+| `{{PM_TOOL_TOKEN_GENERATION_URL}}` | The tool's PAT-generation page. Asana: <https://app.asana.com/0/my-apps>. Trello: <https://trello.com/app-key>. Monday: <https://monday.com/developers/v2#authentication-section>. ClickUp: <https://app.clickup.com/settings/apps>. Shortcut: <https://app.shortcut.com/settings/account/api-tokens>. |
+| `{{PM_TOOL_API_BASE_URL}}` | Asana: `https://app.asana.com/api/1.0`. Trello: `https://api.trello.com/1`. Monday: `https://api.monday.com/v2`. ClickUp: `https://api.clickup.com/api/v2`. Shortcut: `https://api.app.shortcut.com/api/v3`. |
+| `{{PM_TOOL_API_DOCS_URL}}` | The tool's API reference URL. |
+| `{{PM_API_LIST_TICKETS_EXAMPLE}}` | A working `curl` snippet for "list tickets". Use the project's team/project IDs from 5b-API.1 below. |
+| `{{PM_API_UPDATE_TICKET_EXAMPLE}}` | A working `curl` snippet for "move ticket to In Review". |
+| `{{PM_API_CREATE_TICKET_EXAMPLE}}` | A working `curl` snippet for "create new ticket". |
+| `{{PM_API_COMMENT_EXAMPLE}}` | A working `curl` snippet for "post comment on ticket". |
+| `{{PM_API_LIST_FILTERS}}` | One-line description of available filters per the tool's API. |
+| `{{PM_API_RATE_LIMIT_NOTE}}` | E.g. "150 req/min for free tier" — verify against current docs. |
+| `{{PM_TOOL_GITHUB_INTEGRATION_URL_OR_NOTE}}` | If the tool has a native GitHub integration, link to its docs; else "no native integration — agents post comments via the API on PR open". |
+| `{{PM_STATE_FLOW}}` | Tool-specific state names. Most tools have configurable workflows — ask the user in 5b-API.1. |
+
+Example `curl` snippets the scaffold can use as a starting point for each tool:
+
+**Asana — list tasks:**
+```bash
+curl -s -H "Authorization: Bearer ${ASANA_PERSONAL_ACCESS_TOKEN}" \
+  "https://app.asana.com/api/1.0/projects/${ASANA_PROJECT_ID}/tasks?opt_fields=name,completed,assignee.name,custom_fields"
+```
+
+**Trello — list cards on a board:**
+```bash
+curl -s "https://api.trello.com/1/boards/${TRELLO_BOARD_ID}/cards?key=${TRELLO_API_KEY}&token=${TRELLO_API_TOKEN}&fields=name,idList,labels,due"
+```
+
+**Monday — query items in a board (GraphQL):**
+```bash
+curl -s -X POST -H "Authorization: ${MONDAY_API_TOKEN}" -H "Content-Type: application/json" \
+  -d '{"query":"{ boards(ids: ['${MONDAY_BOARD_ID}']) { items_page { items { id name column_values { text } } } } }"}' \
+  "https://api.monday.com/v2"
+```
+
+**ClickUp — list tasks in a list:**
+```bash
+curl -s -H "Authorization: ${CLICKUP_PERSONAL_ACCESS_TOKEN}" \
+  "https://api.clickup.com/api/v2/list/${CLICKUP_LIST_ID}/task"
+```
+
+**Shortcut — list stories in a project:**
+```bash
+curl -s -H "Shortcut-Token: ${SHORTCUT_API_TOKEN}" \
+  "https://api.app.shortcut.com/api/v3/projects/${SHORTCUT_PROJECT_ID}/stories"
+```
+
+These are starting points — the scaffold should refine them based on the user's answers in 5b-API.1.
+
+#### 5b-API.1 — Capture project-specific PM context (API path)
+
+Ask the user, in a single message, the questions tailored to the chosen tool:
+
+```
+{{PM_TOOL_NAME}}-specific questions:
+
+1) Workspace / account URL — e.g. https://app.asana.com/0/<workspace-id>/
+2) The team / project / board ID where this work lives. (Tool-specific —
+   e.g. Asana project ID, Trello board ID, Monday board ID, ClickUp list ID,
+   Shortcut project ID. Find it in the URL.)
+3) Status / state convention — what's your workflow? (e.g. "Backlog → To Do
+   → In Progress → In Review → Done", or whatever the team uses)
+4) Persona ownership — what field tracks ownership? (Asana: custom field /
+   assignee; Trello: label; Monday: a People column; ClickUp: assignee /
+   custom field; Shortcut: owner_ids / labels)
+5) Milestone tracking — how do you track milestones? (often a "due date"
+   grouping, a custom field, or a separate "milestones" board)
+6) Issue prefix in titles (if any) — e.g. "ACME-123 — ..." or no prefix
+```
+
+Wait for answers. Partial answers are OK.
+
+#### 5b-API.2 — Generate the API skill + .env hooks
+
+Substitute the answers into the API template, write to `skills/pm-<tool-slug>-<project-slug>/SKILL.md`, and edit `.env.example` / `.env`:
+
+```bash
+# Append to .env.example (create if missing)
+echo "" >> .env.example
+echo "# {{PM_TOOL_NAME}} personal access token (5b-API)" >> .env.example
+echo "# Generate at: {{PM_TOOL_TOKEN_GENERATION_URL}}" >> .env.example
+echo "{{PM_TOOL_AUTH_ENV_VAR}}=" >> .env.example
+
+# If .env exists, append the same empty slot — DO NOT write a token value
+if [ -f .env ]; then
+  echo "" >> .env
+  echo "{{PM_TOOL_AUTH_ENV_VAR}}=" >> .env
+fi
+```
+
+Verify `.env` is in `.gitignore` (the universal template puts it there; flag if it's missing).
+
+#### Path 5b-MCP — for tools with a vendor MCP
+
+Run **5b-MCP** when Q9a was answered with Linear / Jira / Notion / GitHub. Steps 5b-MCP.1 through 5b-MCP.6 follow.
+
+#### 5b-MCP.1 — Capture project-specific PM context
+
+Ask the user, in a single message, the questions tailored to the chosen PM tool:
+
+**Linear:**
+
+```
+Linear-specific questions:
+
+1) Workspace URL — e.g. https://linear.app/your-workspace
+2) Team name — e.g. "Acme Engineering" (Linear's primary scoping unit)
+3) Issue prefix — e.g. "ACME" (Linear shows this as ACME-123 etc.)
+4) Are you using Linear's "Project" feature for epics? (Y/n) — most teams
+   say yes; one Linear Project per epic, named "EPIC-NN — <title>"
+5) Persona ownership — pick a label group name (default: "Persona") that
+   agents will use to record which agents/*.md owns each issue
+6) Milestone labels — what's your milestone label convention? (e.g.
+   M0-M8, or M1/M2/M3/GA, or "milestone:<n>", or "none"). The orchestrator
+   uses these to filter "what's in the current milestone".
+7) Quarter / time-box labels — convention if any (e.g. Q3-2026, FY25Q4)
+```
+
+**Jira / Atlassian Cloud:**
+
+```
+Jira-specific questions:
+
+1) Cloud URL — e.g. https://your-team.atlassian.net
+2) Project key — e.g. "ACME" (Jira shows issues as ACME-123)
+3) Project name — e.g. "Acme Engineering"
+4) Are you using Jira Epics for epics or a custom hierarchy? (Epic / Custom)
+5) Persona ownership — pick a custom field or label name agents use
+6) Milestone tracking — Jira "fixVersion", a label, or Advanced Roadmaps?
+7) Sprint cadence — fixed sprints (Y/n)? If yes, sprint length in weeks.
+```
+
+**Notion:**
+
+```
+Notion-specific questions:
+
+1) Workspace URL — e.g. https://www.notion.so/your-workspace
+2) PM database URL — the database that holds tickets (Notion uses
+   databases for PM, not a dedicated ticket type)
+3) "Status" property name — typically "Status" but workspaces customize
+4) "Persona" / "Owner" property name — the property agents read/write
+   for ownership
+5) "Milestone" / "Phase" property name — the property milestones live in
+6) Issue prefix convention — Notion has no native prefix; do you use one
+   in titles (e.g. "ACME-123 — ...") or none? "None" is fine.
+```
+
+**GitHub Issues / Projects:**
+
+```
+GitHub-specific questions:
+
+1) Owner / repo — e.g. "acme/widgets" (issues live per-repo) or
+   "acme" (org-level Projects span multiple repos)
+2) Are issues scoped to a specific Project (v2)? URL if so.
+3) Persona ownership — issue label, custom field, or assignee?
+4) Milestone tracking — GitHub Milestones or Project iteration field?
+5) Issue prefix — GitHub shows #123; you can prefix titles ("ACME #123 —")
+   or leave just the number. "None" is fine.
+```
+
+Wait for answers. Partial answers are OK — proceed with what you have and document the gaps in the generated skill so the user can fill them in by editing.
+
+#### 5b-MCP.2 — Generate the PM skill
+
+Read `templates/skills/pm-skill-template/SKILL.md` and substitute. The path is `<project>/skills/pm-<tool-slug>-<project-slug>/SKILL.md`. Slug examples:
+
+- `pm-linear-acme-widgets/SKILL.md`
+- `pm-jira-acme-widgets/SKILL.md`
+- `pm-notion-acme-widgets/SKILL.md`
+- `pm-github-acme-widgets/SKILL.md`
+
+Substitution map per tool:
+
+| Placeholder | Linear | Jira | Notion | GitHub |
+|---|---|---|---|---|
+| `{{PM_TOOL_NAME}}` | Linear | Jira | Notion | GitHub Issues |
+| `{{PM_TOOL_SLUG}}` | linear | jira | notion | github |
+| `{{PM_TOOL_TEAM_OR_PROJECT_LABEL}}` | Team | Project | Workspace + Database | Owner/repo (or Project v2) |
+| `{{PM_TOOL_TEAM_OR_PROJECT_NAME}}` | (5b-MCP.1 Q2) | (5b-MCP.1 Q2 + Q3) | (5b-MCP.1 Q2) | (5b-MCP.1 Q1 + Q2) |
+| `{{PM_TOOL_WORKSPACE_URL}}` | (5b-MCP.1 Q1) | (5b-MCP.1 Q1) | (5b-MCP.1 Q1) | https://github.com/(5b-MCP.1 Q1) |
+| `{{PM_ISSUE_PREFIX}}` | (5b-MCP.1 Q3) | (5b-MCP.1 Q2) | (5b-MCP.1 Q6 or "—") | (5b-MCP.1 Q5 or "#") |
+| `{{PM_EPIC_MAPPING}}` | "one Linear Project per epic; project name `EPIC-NN — <title>`" | "Jira Epic per epic" or custom (per Q4) | "an `Epic` value in the Type property" or per the user's setup | "GitHub Project (v2) per epic" or "milestone per epic" |
+| `{{PM_PERSONA_LABEL_CONVENTION}}` | "single-select label group `<name>` (per 5b-MCP.1 Q5)" | "custom field or label `<name>` (per 5b-MCP.1 Q5)" | "select property `<name>` (per 5b-MCP.1 Q4)" | "label, custom field, or assignee (per 5b-MCP.1 Q3)" |
+| `{{PM_MILESTONE_LABEL_CONVENTION}}` | (5b-MCP.1 Q6) | (5b-MCP.1 Q6) | (5b-MCP.1 Q5) | (5b-MCP.1 Q4) |
+| `{{PM_QUARTER_LABEL_CONVENTION}}` | (5b-MCP.1 Q7) | (none typically) | (Quarter property if used) | (none typically) |
+| `{{PM_OTHER_LABEL_CONVENTION}}` | freeform (e.g. tech-freshness, infra) | freeform | freeform | freeform |
+| `{{PM_LIST_ISSUES_TOOL}}` | `mcp__claude_ai_Linear__list_issues` | `mcp__claude_ai_Atlassian__list_issues` (verify exact name) | `mcp__claude_ai_Notion__query_database` | `mcp__github__list_issues` |
+| `{{PM_SAVE_ISSUE_TOOL}}` | `mcp__claude_ai_Linear__save_issue` | `mcp__claude_ai_Atlassian__save_issue` | `mcp__claude_ai_Notion__update_page` / `create_page` | `mcp__github__create_issue` / `update_issue` |
+| `{{PM_MCP_TOOL_LIST}}` | bullet list of all `mcp__claude_ai_Linear__*` tools available | same for Atlassian | same for Notion | same for GitHub |
+
+Verify the exact MCP tool names against the user's session — if a tool's MCP isn't yet authenticated, surface that as a "you'll authenticate this on first use" note rather than blocking.
+
+#### 5b-MCP.3 — Generate `pm/backlog.md` as a pointer (instead of the rich template)
+
+When this step runs, **override Step 4's `pm/backlog.md` write** with the pointer template at `templates/pm/backlog-pointer.md`. Substitute the same `{{PM_TOOL_*}}` placeholders. The rich `templates/pm/backlog.md` is **not** copied for projects with a PM tool.
+
+Note: `pm/management.md` and `pm/roadmap.md` are still generated normally — they hold strategy and leadership-readable plans, not ticket detail, and don't fit a ticket tracker.
+
+#### 5b-MCP.4 — Add a "PM source of truth" rule to AGENTS.md
+
+Append the following to the bottom of `AGENTS.md`'s `## Project-specific rules` section (substituting the tool name):
+
+```
+- **{{PM_TOOL_NAME}} is the source of truth for ticket status, milestones,
+  and assignments.** When a ticket changes state, update {{PM_TOOL_NAME}},
+  not `pm/backlog.md`. The pointer doc at `pm/backlog.md` is intentionally
+  not a live mirror — agents reading "what's in progress?" route to
+  {{PM_TOOL_NAME}} via the pm-<tool>-<project-slug> skill at
+  `skills/`.
+- PR titles and branch names must include an `{{PM_ISSUE_PREFIX}}-N`
+  reference so the {{PM_TOOL_NAME}} GitHub integration auto-links the PR
+  to the ticket. Example branch: `<role>/{{PM_ISSUE_PREFIX}}-123-short-slug`.
+  Example PR title: `[{{PM_ISSUE_PREFIX}}-123] <description>`.
+```
+
+These two rules are load-bearing for the workflow when a PM tool is in play. The first one prevents drift between the file and the tool. The second is what the orchestrator's dispatch loop relies on to attribute PRs to tickets.
+
+#### 5b-MCP.5 — Add the PM-tool MCP to the integrations plan
+
+The PM tool's MCP has already been surfaced by Q9a. Skip the Q9b prompt for *this* MCP in Step 6 — it's effectively pre-confirmed by 5b-MCP.1's tool-specific questions. Set `_enabled: true` for the matching entry in `.mcp.example.json` (Step 6 will write the file as usual). Set `_authoritative_pm_tool` to the chosen tool name (`linear` / `jira` / `notion` / `github`) instead of the default `document`.
+
+#### 5b-MCP.6 — Coach the user on remaining setup
+
+Print a short reminder to the user:
+
+```
+PM-tool wiring complete:
+
+  - Source of truth: {{PM_TOOL_NAME}} (workspace: <url>)
+  - PM skill at skills/pm-<tool>-<project-slug>/SKILL.md
+  - pm/backlog.md is now a pointer doc — do NOT edit for status changes
+  - AGENTS.md got two project-specific rules covering this
+
+Remaining manual steps:
+  1) On first use, Claude Code will prompt you to OAuth into {{PM_TOOL_NAME}}.
+  2) Open skills/pm-<tool>-<project-slug>/SKILL.md and verify the
+     conventions section matches your actual workspace setup. Anything I
+     guessed wrong or left as a placeholder, edit it.
+  3) (If using Linear) Make sure the persona label group exists in your
+     workspace with one value per agents/*.md persona. The orchestrator
+     dispatch loop relies on it.
+```
+
+---
 
 ### Step 6 — MCP integrations: confirm, edit `.mcp.example.json`, copy `.mcp.json`, coach OAuth
 
@@ -501,7 +890,7 @@ For each confirmed MCP integration:
 
 1. **Set `_enabled: true`** for that entry in the `.mcp.example.json` file before writing it to the user's project. (Read `templates/mcp.example.json`, edit in memory, write to `<project>/.mcp.example.json`.)
 2. **Add a one-line "Integration: <Tool> via official MCP" entry** to the `## Repository context` section in `agents/orchestrator.md` (which you've already written in Step 4). Include the documentation URL.
-3. **If the integration affects coding rules** (e.g. "PR description must include the Linear issue ID"), append a rule to the `## Project-specific rules` section in `CLAUDE.md`.
+3. **If the integration affects coding rules** (e.g. "PR description must include the Linear issue ID"), append a rule to the `## Project-specific rules` section in `AGENTS.md`.
 4. **Copy `templates/integrations.md`** into `<project>/docs/integrations.md` (only on first integration enabled — subsequent integrations don't re-copy).
 5. **Offer to copy `.mcp.example.json` → `.mcp.json`** for the user, with a one-line consent prompt: "Want me to copy `.mcp.example.json` to `.mcp.json` so the MCPs are wired in this project? (`.mcp.json` is gitignored.) (Y/n)". On yes: do the copy. On no: tell the user to do it manually when they're ready.
 6. **Coach the OAuth flow.** For each enabled MCP, print one line: "On first use, Claude Code will prompt you to authenticate with `<Tool>` via OAuth in your browser. No further action needed before then." This is the *only* MCP step that the scaffold cannot automate — OAuth requires the user's browser.
@@ -511,10 +900,35 @@ For the authoritative-PM-source answer:
 - Set `_authoritative_pm_tool` in `.mcp.example.json` to the chosen value (`document` | `linear` | `jira` | `notion`).
 - If the user picked a tool, add a note at the top of `pm/backlog.md` saying "This document mirrors `<Tool>`; `<Tool>` is the source of truth for live ticket status."
 
+#### Personal-assistant read-only scopes (only if Personal Assistant was confirmed)
+
+When the Personal Assistant persona is in the confirmed list, ensure these MCPs are wired with **read-only** scope:
+
+- **Gmail / Microsoft 365 / equivalent email MCP** — `read` scope only. The persona reads inbox state, surfaces unanswered threads, and flags items the user owes a reply on. It must **never** acquire send / compose / delete scopes.
+- **Slack / Teams / Discord / equivalent team-comm MCP** — `read` scope only. Same shape: read channels the user follows, surface direct mentions and pending replies, group activity by tracked goals.
+- **Calendar MCP** *(optional)* — `read` scope only. The persona correlates goal stalls with calendar load.
+
+For each, set the entry's `scopes` field in `.mcp.example.json` to the read-only set explicitly, with a comment:
+
+```json
+"scopes": ["read"],  // Personal Assistant: read-only — no send/compose/post
+```
+
+If a vendor MCP doesn't expose a read-only scope distinction (some are all-or-nothing), surface that to the user explicitly: "Gmail's MCP grants both read and send scopes in one OAuth flow — Personal Assistant ignores the send surface, but the OAuth grant is broader. Continue? (Y/n)"
+
+Add a one-line constraint to `AGENTS.md`'s `## Project-specific rules`:
+
+```
+- The Personal Assistant persona reads email + team-comms via vendor
+  MCPs but NEVER sends, composes, posts, or modifies. If a vendor MCP
+  exposes a write surface, the persona ignores it. The user takes every
+  outbound action themselves.
+```
+
 **Constraints on what this step modifies:**
 
 - Modifies `.mcp.example.json` (committed) and `.mcp.json` (with consent; gitignored). ✓
-- Modifies `CLAUDE.md` (`## Project-specific rules` only) and `agents/orchestrator.md` (`## Repository context` only). ✓
+- Modifies `AGENTS.md` (`## Project-specific rules` only) and `agents/orchestrator.md` (`## Repository context` only). ✓
 - Does **not** modify `~/.claude/settings.json` or other personal Claude Code config without explicit per-change consent (see Step 7 for the one exception — skill installs).
 - Does **not** recommend community / unofficial MCPs from this scaffold. If the user asks for one not on the list, tell them to evaluate vendor-official status before adopting.
 
@@ -537,7 +951,7 @@ Cross-reference against the session's `<available-skills>` reminder before class
 
 For each git-installable skill:
 
-1. **Choose the install scope.** Default to project-scoped (`.claude/skills/<name>/`) when the project is a git repo and the skill is one the team should share (most cases). Default to user-scoped (`~/.claude/skills/<name>/`) when the skill is personal-productivity rather than team-workflow (rare in this context).
+1. **Choose the install scope.** Default to project-scoped (`skills/<name>/`) when the project is a git repo and the skill is one the team should share (most cases). Default to user-scoped (`~/.claude/skills/<name>/`) when the skill is personal-productivity rather than team-workflow (rare in this context).
 2. **Show the user the batch and ask once.** Single message:
 
    ```
@@ -550,7 +964,7 @@ For each git-installable skill:
 
 3. **On yes:** run the `git clone` (or `git submodule add` for project-scoped, when the project is a git repo) via the Bash tool. After each, verify the directory exists and contains `SKILL.md` (a sanity check that the clone produced a valid skill). On any failure, surface the error and continue with the rest of the batch.
 4. **On no:** print the commands the user can run themselves later, formatted to copy-paste, and continue. Do not block on this.
-5. **For project-scoped installs**, the resulting `.claude/skills/` directory is **intentionally version-controlled**. Don't add it to `.gitignore`.
+5. **For project-scoped installs**, the resulting `skills/` directory is **intentionally version-controlled**. Don't add it to `.gitignore`.
 
 #### 7c. Coach the `semi-auto: plugin` lane
 
@@ -583,7 +997,7 @@ If any auto-install fails or the user declines, the scaffold continues to Step 8
 
 #### 7f. Don't auto-install without consent — even on "obvious" cases
 
-The agent must ask before running `git clone` on the user's machine. The single batched consent prompt in 7b is the only point where it touches `~/.claude/skills/` or `.claude/skills/`. There is no implicit consent.
+The agent must ask before running `git clone` on the user's machine. The single batched consent prompt in 7b is the only point where it touches `~/.claude/skills/` or `skills/`. There is no implicit consent.
 
 ### Step 8 — Bootstrap memory
 
@@ -615,7 +1029,13 @@ Plus a **role profile** memory entry, generated from the discovery answers so fu
 
 The role-profile entry's body is short — 4–6 sentences. Example shape: "User is a {{role}} who owns {{decision-area}}. Primary work is {{work}}, typical tasks involve {{touchpoints}}. Active tools: {{tools}}. Specialty workflows: {{specialty}}." Future scaffold runs read this entry first and skip discovery questions the user has already answered.
 
-Update `MEMORY.md` to list all six with one-line descriptions.
+Plus, **only if the Personal Assistant persona was confirmed in 3a**, seed its private memory:
+
+| File | Type | Content |
+|---|---|---|
+| `personal-assistant-context.md` | user | Read template at `templates/memory/personal-assistant-context.md` and copy verbatim. The file ships with seed sections (Working preferences / People in their orbit / Recurring personal context / Communication-source filters / Never-assignable goal categories / Trust history) populated with examples — the user fills them in over the first few sessions. The persona reads this file at every session start and updates it as it learns. |
+
+Update `MEMORY.md` to list six entries (or seven if Personal Assistant was confirmed) with one-line descriptions.
 
 ### Step 9 — Print next-step instructions to the user
 
@@ -634,10 +1054,37 @@ Codebases registered:
   (omit this section if no codebases were registered)
 
 Project-local skills drafted:
-  <list each .claude/skills/<codebase-slug>/SKILL.md the scaffold drafted,
+  <list each skills/<codebase-slug>/SKILL.md the scaffold drafted,
    with a one-line summary of what it covers and a reminder to open and
    edit it to add human-only knowledge>
-  (omit this section if Step 2b.7 declined to draft any)
+  <list the PM skill at skills/pm-<tool>-<project-slug>/SKILL.md
+   if Step 5b ran>
+  (omit this section if neither Step 2b.7 nor Step 5b drafted any)
+
+AI tool wiring (from Step 4a):
+  Claude Code:          ✓ CLAUDE.md → AGENTS.md, .claude/skills → ../skills
+  <other tools per Q14, one line each, e.g.:>
+  GitHub Copilot:       ✓ .github/copilot-instructions.md → ../AGENTS.md
+  OpenCode:             native AGENTS.md (verify version >= 0.X)
+  Aider:                .aider.conf.yml → read: AGENTS.md
+  Cline:                native AGENTS.md (verify recent version)
+  Cursor:               native AGENTS.md (verify Cursor 1.6+)
+  <For tools whose project-local skill format differs from skills/<name>/SKILL.md
+   (Cursor's .mdc, Copilot's .instructions.md, OpenCode's .opencode/agents/),
+   one line: "see `skills/README.md` Cross-tool conventions table for
+   manual wiring".>
+  <Conflicts: list any path where a real file already existed and Step 4a
+   skipped — user resolves manually>
+
+PM source of truth:
+  <one of:
+     "Linear (workspace <url>) — pm/backlog.md is a pointer doc"
+     "Jira (cloud <url>) — pm/backlog.md is a pointer doc"
+     "Notion (workspace <url>) — pm/backlog.md is a pointer doc"
+     "GitHub Issues (<owner/repo>) — pm/backlog.md is a pointer doc"
+     "Asana / Trello / etc. (no vendor MCP) — pm/backlog.md is the live source"
+     "Files only — pm/backlog.md is the live source">
+  (omit this section if Q9a wasn't asked / answered)
 
 Files written:
   <list every other path you wrote, with relative paths>
@@ -658,7 +1105,7 @@ Memory bootstrapped:
 
 ## Next steps
 
-1. Review CLAUDE.md and edit any rule you want to relax. The Project-specific rules
+1. Review AGENTS.md and edit any rule you want to relax. The Project-specific rules
    section at the bottom is where you tweak.
 2. Open agents/orchestrator.md and confirm the GitHub repo + branch-prefix rows match
    your project. Adjust if needed.
@@ -670,7 +1117,7 @@ Memory bootstrapped:
 5. (If codebases were registered) Open pm/codebases.md and verify each entry — paths,
    base branches, user feature branches, tech inventories, deprecation notes. Anything
    the scaffold guessed wrong, edit. The owning personas have already been linked.
-5b. (If local skills were drafted) Open each .claude/skills/<codebase-slug>/SKILL.md
+5b. (If local skills were drafted) Open each skills/<codebase-slug>/SKILL.md
    and add the human-only knowledge — recurring bugs, the thing that broke prod last
    quarter, the gotchas you can't infer from a file scan. The drafted skill is a
    starting point, not a finished artifact.
@@ -691,11 +1138,12 @@ Stop. Do not proceed to do additional work unless the user asks.
 ## Working principles for this skill
 
 - **Discovery before generation.** Never write a persona file the user didn't confirm. Step 2 (interview) → Step 2b (codebase setup) → Step 3 (synthesis + confirmation) → Step 4 (write only what's confirmed) is the load-bearing sequence; do not collapse it.
-- **Niche codebase knowledge goes in a project-local skill, not a separate persona.** Personas describe *roles* (what someone does); skills describe *technical knowledge* (how to do the thing). When Step 2b.7 surfaces a codebase with niche tech or team-specific gotchas, the output is a draft `.claude/skills/<codebase-slug>/SKILL.md` — not a `custom-skeleton.md` persona. The standard persona that owns the codebase loads the local skill before starting work.
+- **Niche codebase knowledge goes in a project-local skill, not a separate persona.** Personas describe *roles* (what someone does); skills describe *technical knowledge* (how to do the thing). When Step 2b.7 surfaces a codebase with niche tech or team-specific gotchas, the output is a draft `skills/<codebase-slug>/SKILL.md` — not a `custom-skeleton.md` persona. The standard persona that owns the codebase loads the local skill before starting work.
+- **PM-tool conventions go in a project-local skill, not in `pm/backlog.md`.** When the user has Linear / Jira / Notion / GitHub as their PM source of truth (Q9a), the live ticket state is in the tool — not in a markdown file the scaffold has to keep up to date. Step 5b drafts a `pm-<tool>-<project-slug>` skill at `skills/` that wraps the tool's MCP with project-specific conventions (workspace, team / project, issue prefix, label groups). The skill auto-loads when any persona starts PM-adjacent work. `pm/backlog.md` becomes a thin pointer doc, not a live mirror.
 - **Don't overwrite without asking.** This is the user's project — Step 1 detection is mandatory.
-- **Don't push to a referenced codebase's base branch.** Ever. Step 2b records the user's feature branch as the only acceptable PR target for each codebase. The orchestrator persona and CLAUDE.md both restate this rule because it's load-bearing for safe multi-repo work.
+- **Don't push to a referenced codebase's base branch.** Ever. Step 2b records the user's feature branch as the only acceptable PR target for each codebase. The orchestrator persona and AGENTS.md both restate this rule because it's load-bearing for safe multi-repo work.
 - **Don't dump every file in a wall of writes.** Confirm the persona / MCP / skill / codebase plan in Step 3, then generate in Step 4 onwards. The user can interrupt.
-- **Don't add rules to CLAUDE.md that the user didn't agree to.** Step 5's questions matter — silent additions break trust. The exception is the multi-codebase PR rules in Step 5: those are tied to the codebases the user already confirmed in Step 3, so they're not silent.
+- **Don't add rules to AGENTS.md that the user didn't agree to.** Step 5's questions matter — silent additions break trust. The exception is the multi-codebase PR rules in Step 5: those are tied to the codebases the user already confirmed in Step 3, so they're not silent.
 - **Active install, but consent-gated.** Step 7 actively `git clone`s skills the agent can install — but never without one explicit batched yes. Plugin installs (`/plugin install`) and OAuth flows are user-driven and the agent only coaches. Step 2b's `git checkout -b` for the user's feature branch is the same shape — ask first, run second.
 - **Don't substitute placeholders blindly.** If the user said "none" for the GitHub repo, comment out the GitHub-specific lines in `orchestrator.md` rather than leaving "none/none" in there. Same for `custom-skeleton.md`'s `{{PERSONA_*}}` placeholders and `codebases.md`'s `{{LOCAL_PATH}}` etc. — fill them with the discovery answers, don't ship literal `{{}}` to disk.
 - **Read the templates fresh each invocation.** Templates may have been updated since the last time the skill was run; don't cache.

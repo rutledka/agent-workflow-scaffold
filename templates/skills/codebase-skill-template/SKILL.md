@@ -5,7 +5,7 @@ description: {{SKILL_DESCRIPTION}}
 
 # {{SKILL_NAME}} — project-local skill
 
-This skill encodes **niche knowledge for the {{CODEBASE_NAME}} codebase** at `{{LOCAL_PATH}}`. It is a project-local skill (lives under `.claude/skills/`) and is loaded automatically by Claude Code when its trigger description matches the task at hand. Personas configured under `agents/` are also instructed to check `.claude/skills/` for matching local skills before starting work — see the **Before starting work** section in each persona file.
+This skill encodes **niche knowledge for the {{CODEBASE_NAME}} codebase** at `{{LOCAL_PATH}}`. It is a project-local skill (lives under `skills/`) and is loaded automatically by Claude Code when its trigger description matches the task at hand. Personas configured under `agents/` are also instructed to check `skills/` for matching local skills before starting work — see the **Before starting work** section in each persona file.
 
 This file was scaffolded by `agent-workflow-scaffold` based on the codebase scan. It contains what the scaffold could *infer*; the human-only knowledge (recurring bugs, quirky requirements, "the thing that broke prod last quarter") needs your direct input below.
 
@@ -31,7 +31,7 @@ This file was scaffolded by `agent-workflow-scaffold` based on the codebase scan
 
 {{COMMON_GOTCHAS_BULLETS}}
 
-*(Edit this list to add the recurring bugs / surprises any contributor should know about. Aim for non-obvious things — if a senior engineer in this codebase would say "oh yeah, watch out for that," it belongs here. Skip generic advice like "test before pushing" — `CLAUDE.md` covers that.)*
+*(Edit this list to add the recurring bugs / surprises any contributor should know about. Aim for non-obvious things — if a senior engineer in this codebase would say "oh yeah, watch out for that," it belongs here. Skip generic advice like "test before pushing" — `AGENTS.md` covers that.)*
 
 ---
 
