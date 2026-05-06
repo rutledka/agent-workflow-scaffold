@@ -10,6 +10,7 @@ Personas turn "Claude, work on this project" into "Claude, work on this project 
 
 Every persona file in this directory follows the same skeleton:
 
+0. **Frontmatter** — YAML block declaring `required_skills:` (see below).
 1. **Role** — one paragraph. Who you are, what you own, what you don't own.
 2. **Documents owned / updated** — what files this role writes or maintains.
 3. **Branch prefix** *(for engineering roles)* — e.g. `backend/*`. Used by the orchestrator to attribute PRs to a role.
@@ -18,6 +19,37 @@ Every persona file in this directory follows the same skeleton:
 6. **Key references** — the documents this role reads first.
 
 For execution-style personas (the Orchestrator), the file is structured as a procedure with numbered steps instead of working patterns.
+
+### Required-skills frontmatter
+
+Each persona starts with a YAML frontmatter block declaring the Claude Code skills it depends on:
+
+```yaml
+---
+required_skills: []
+---
+
+# Backend Engineer — Agent Persona
+…
+```
+
+When a persona uses a skill — for example, a Product Designer persona that calls Figma's `use_figma` MCP tool needs the `figma:figma-use` skill loaded first — list it:
+
+```yaml
+---
+required_skills:
+  - figma:figma-use
+  - figma:figma-code-connect
+  - figma:figma-generate-design
+---
+
+# Product Designer — Agent Persona
+…
+```
+
+The canonical list of known skills (with install commands) lives in [`docs/skills-registry.md`](../docs/skills-registry.md). The scaffold's Step 4c reads each persona's frontmatter, cross-references the registry, checks the user's installed skills, and prompts to install anything missing — both during the first scaffold run and on every re-run.
+
+Empty `required_skills: []` is the default. If the persona doesn't need a skill, leave the list empty rather than removing the field — that way the field is discoverable when a future contributor wants to add a skill.
 
 ## Adding a new persona
 
