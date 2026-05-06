@@ -1,4 +1,4 @@
-# Project-local skills (`.claude/skills/`)
+# Project-local skills (`skills/`)
 
 This directory holds **project-scoped Claude Code skills** — skills that are committed to the repo and become available to any contributor running Claude Code inside this project. They complement, not replace, user-scoped skills (in `~/.claude/skills/`) and Claude Code plugin skills (installed via `/plugin install`).
 
@@ -14,7 +14,7 @@ Use a project-local skill when the knowledge:
 The scaffold (Step 2b.7) drafts a project-local skill for any *referenced codebase* (see `pm/codebases.md`) where Q13 indicated niche tech / domain knowledge or where the scan surfaced patterns that aren't covered by the standard personas. Each codebase that warrants one gets its own subdirectory:
 
 ```
-.claude/skills/
+skills/
 ├── README.md                        — this file
 ├── <codebase-slug>/
 │   ├── SKILL.md                     — frontmatter + niche knowledge + gotchas
@@ -38,20 +38,20 @@ The Claude Code skill loader uses the `description:` field in each skill's front
 
 ## Adding a new project-local skill
 
-1. Create a directory under `.claude/skills/<your-skill-name>/`.
+1. Create a directory under `skills/<your-skill-name>/`.
 2. Author `SKILL.md` with YAML frontmatter (`name`, `description`) and the body content.
 3. Add supporting files in the same directory if the skill needs reference material.
 4. Commit the skill — it's intentionally version-controlled so contributors share the same context.
 
-The scaffold's `templates/.claude/skills/codebase-skill-template/SKILL.md` is the canonical template for codebase-niche skills. For other skill types, the [Claude Code skill authoring guide](https://docs.claude.com/en/docs/claude-code/skills) is the reference.
+The scaffold's `templates/skills/codebase-skill-template/SKILL.md` is the canonical template for codebase-niche skills. For other skill types, the [Claude Code skill authoring guide](https://docs.claude.com/en/docs/claude-code/skills) is the reference.
 
 ## What to NOT put here
 
-- **Generic engineering advice** — that belongs in `CLAUDE.md` Project-specific rules.
+- **Generic engineering advice** — that belongs in `AGENTS.md` Project-specific rules.
 - **Decisions and rationale** — that belongs in `docs/adr/`.
 - **Per-task instructions** — that belongs in the ticket body in `pm/backlog.md`.
 - **Personal productivity hacks** — those go in user-scoped skills at `~/.claude/skills/`, not here.
 
 ## Updating after a codebase scan re-run
 
-Re-running `/agent-workflow-scaffold` on a project with existing local skills **will not overwrite them**. The re-run's Step 2b detects existing entries in `.claude/skills/` and surfaces a "drift detected — review?" prompt rather than clobbering. If you want a fresh scan-derived draft for a codebase whose skill has gotten stale, delete the codebase's subdirectory and re-run; the scaffold will produce a fresh starting point you can re-edit.
+Re-running `/agent-workflow-scaffold` on a project with existing local skills **will not overwrite them**. The re-run's Step 2b detects existing entries in `skills/` and surfaces a "drift detected — review?" prompt rather than clobbering. If you want a fresh scan-derived draft for a codebase whose skill has gotten stale, delete the codebase's subdirectory and re-run; the scaffold will produce a fresh starting point you can re-edit.

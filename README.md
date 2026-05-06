@@ -90,60 +90,71 @@ Re-running the skill on the same project re-detects existing files, **re-runs th
 
 ```
 <your-project>/
-├── CLAUDE.md                          # universal rules + your project-specific rules
+├── AGENTS.md                          # universal rules + your project-specific rules.
+│                                      #   Vendor-neutral filename per the agents.md convention.
+├── CLAUDE.md → AGENTS.md              # symlink — Claude Code reads CLAUDE.md; the symlink
+│                                      #   resolves to AGENTS.md. Other AI coding tools can
+│                                      #   point their convention at AGENTS.md too.
 ├── .gitignore                         # adds .worktrees/ if not already present
-├── agents/
+├── agents/                            # persona definitions — one .md per role
 │   ├── orchestrator.md                # the runnable dispatch loop (the keystone)
-│   ├── project-manager.md
-│   ├── engineering-manager.md
-│   ├── backend-engineer.md            # if selected
-│   ├── frontend-engineer.md           # if selected
-│   ├── qa-engineer.md                 # if selected
+│   ├── personal-assistant.md          # default-included; goal tracker + read-only signals
+│   ├── project-manager.md             # if proposed in Step 3
+│   ├── engineering-manager.md         # if proposed
+│   ├── backend-engineer.md            # if proposed
+│   ├── frontend-engineer.md           # if proposed
+│   ├── qa-engineer.md                 # if proposed
+│   ├── platform-engineer.md           # if proposed
+│   ├── product-designer.md            # if proposed
+│   ├── legal-advisor.md               # if proposed
+│   ├── pilot-lead.md                  # if proposed
 │   └── README.md
 ├── pm/
-│   ├── backlog.md                     # milestones / epics / tickets
-│   ├── management.md                  # exec summary / RACI / decision log / risk register
-│   ├── roadmap.md
-│   └── README.md
-├── pm/
-│   ├── backlog.md                     # milestones / epics / tickets
+│   ├── backlog.md                     # rich source of truth (Mode C) OR pointer doc (Modes A/B)
 │   ├── management.md                  # exec summary / RACI / decision log / risk register
 │   ├── roadmap.md
 │   ├── codebases.md                   # if any external codebase was registered
+│   ├── goals.md                       # if Personal Assistant was confirmed
+│   ├── assistant-log.md               # if Personal Assistant was confirmed
 │   └── README.md
-└── docs/
+├── docs/
 │   ├── README.md
 │   ├── integrations.md                # if any MCP integration was enabled
-│   ├── skills-registry.md             # known Claude Code skills + install commands
+│   ├── skills-registry.md             # known agent skills + install commands
 │   ├── tech-docs-registry.md          # library / framework → official docs URL
 │   ├── feature-overlap-registry.md    # overlapping libs → deprecation candidates
 │   ├── adr/
 │   │   └── 0000-template.md
 │   └── dispatch-logs/
 │       └── .gitkeep
+├── skills/                            # project-local skills (vendor-neutral path)
+│   ├── README.md
+│   ├── <codebase-slug>/               # if any codebase warranted a local skill (Step 2b.7)
+│   │   └── SKILL.md
+│   └── pm-<tool>-<slug>/              # if Mode A/B configured a PM-tool skill (Step 5b)
+│       └── SKILL.md
 └── .claude/
-    └── skills/                        # project-local Claude Code skills
-        ├── README.md
-        └── <codebase-slug>/           # if any codebase warranted a local skill
-            └── SKILL.md
+    └── skills → ../skills             # symlink — Claude Code's skill loader reads
+                                       #   .claude/skills/; the symlink redirects to skills/.
+                                       #   Other AI tools can read skills/ directly.
+
+# plus, at the repo root, if any integration was enabled:
+.mcp.example.json                      # example MCP server config (committed)
+.mcp.json                              # active config (gitignored; user creates from example)
+.env.example                           # if Step 5b-API wired a PAT-based PM tool
+.env                                   # gitignored; user fills in token values
 
 # `agents/` only contains the personas the discovery interview produced —
 # typically 3–7 of the eleven off-the-shelf templates plus any custom roles.
 # Solo projects may have only 3; team projects may have all 11.
 #
-# `pm/codebases.md` is only present if the discovery interview registered
-# at least one external codebase. The file is the source of truth for
-# multi-repo work — paths, base branches, the user's feature branches
-# (PR targets), tech inventories, deprecation notes.
+# AGENTS.md is the source; CLAUDE.md is a symlink. If you adopt another
+# AI coding tool (Cursor, Cline, Aider, etc.) later, point its convention
+# at AGENTS.md instead of maintaining a parallel file.
 #
-# `.claude/skills/<codebase-slug>/` is only present if Step 2b.7 surfaced
-# niche knowledge for that codebase. Personas check `.claude/skills/`
-# before starting work and load any matching skill — niche codebase
-# knowledge lives here instead of becoming a separate persona.
-
-# plus, at the repo root, if any integration was enabled:
-.mcp.example.json                      # example MCP server config (committed)
-.mcp.json                              # active config (gitignored; user creates from example)
+# skills/ is the vendor-neutral path; .claude/skills is a symlink. Same
+# pattern as AGENTS.md — Claude Code's loader reads .claude/skills/, but
+# the content lives at the platform-agnostic location.
 ```
 
 Plus user-scoped memory at `~/.claude/projects/<your-project-slug>/memory/`:

@@ -9,7 +9,7 @@ required_skills: []
 
 ## Before starting work
 
-Check `.claude/skills/` before any task. Subdirectories there are project-local skills — niche codebase / domain knowledge committed alongside the project. Claude Code surfaces them in the session's available-skills list when their `description:` matches the task at hand. If a matching skill appears, **load it via the Skill tool before doing the work**; its conventions and gotchas override the generic guidance below.
+Check `skills/` before any task. Subdirectories there are project-local skills — niche codebase / domain knowledge committed alongside the project. Claude Code surfaces them in the session's available-skills list when their `description:` matches the task at hand. If a matching skill appears, **load it via the Skill tool before doing the work**; its conventions and gotchas override the generic guidance below.
 
 `pm/codebases.md` records which codebases have a paired local skill — start there if you're unsure whether a relevant one exists.
 
@@ -149,7 +149,7 @@ The review goes in `pm/assistant-log.md` under that date; the user reads it as p
 
 ## Key References
 
-- `CLAUDE.md` — git workflow + project-specific rules.
+- `AGENTS.md` — git workflow + project-specific rules.
 - `pm/goals.md` — your authored document; the source of truth for the user's tracked goals.
 - `pm/assistant-log.md` — your audit log of nudges, summaries, and assignment proposals.
 - `pm/codebases.md` — when a goal involves a referenced codebase, this maps the codebase to its owning personas + local skill.

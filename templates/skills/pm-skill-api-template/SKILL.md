@@ -7,7 +7,7 @@ description: Project-management operations for {{PROJECT_NAME}} via the {{PM_TOO
 
 > **Why API and not MCP?** {{PM_TOOL_NAME}} doesn't ship a vendor-official MCP. The scaffold wires the tool's published REST/GraphQL API as a project-local skill instead. This is rougher than MCP — agents use `curl` (or the project's preferred HTTP client) and you manage auth via a personal access token — but it's better than treating the tool as opaque to agents.
 
-This skill captures **{{PROJECT_NAME}}-specific {{PM_TOOL_NAME}} context** plus the API call patterns agents need to read and write tickets. Every persona file in `agents/` instructs Claude to check `.claude/skills/` and load matching skills before starting work; this skill auto-loads when the task involves any of the operations listed in the trigger description above.
+This skill captures **{{PROJECT_NAME}}-specific {{PM_TOOL_NAME}} context** plus the API call patterns agents need to read and write tickets. Every persona file in `agents/` instructs Claude to check `skills/` and load matching skills before starting work; this skill auto-loads when the task involves any of the operations listed in the trigger description above.
 
 > **Source of truth.** {{PM_TOOL_NAME}} is authoritative for ticket status, milestone progress, and assignments. `pm/backlog.md` is a thin pointer doc + milestone framework summary — it is **not** updated as tickets move. Any "what's the current state?" question routes here, not to the file.
 
@@ -95,7 +95,7 @@ Use the project's epic / milestone / persona conventions documented above when p
 
 ### Link a PR to a ticket
 
-{{PM_TOOL_NAME}}'s native GitHub integration (if available) is configured at: {{PM_TOOL_GITHUB_INTEGRATION_URL_OR_NOTE}}. If integrated, follow the same branch-name / PR-title convention documented in `CLAUDE.md` so the integration matches.
+{{PM_TOOL_NAME}}'s native GitHub integration (if available) is configured at: {{PM_TOOL_GITHUB_INTEGRATION_URL_OR_NOTE}}. If integrated, follow the same branch-name / PR-title convention documented in `AGENTS.md` so the integration matches.
 
 If no native integration exists, agents post a comment on the {{PM_TOOL_NAME}} ticket from PR-open via:
 

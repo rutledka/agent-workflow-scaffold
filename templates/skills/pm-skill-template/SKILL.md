@@ -5,7 +5,7 @@ description: Project-management operations for {{PROJECT_NAME}} via {{PM_TOOL_NA
 
 # {{PROJECT_NAME}} — PM operations via {{PM_TOOL_NAME}}
 
-This skill wraps {{PM_TOOL_NAME}}-MCP usage with **{{PROJECT_NAME}}-specific context**. Every persona file in `agents/` instructs Claude to check `.claude/skills/` and load matching skills before starting work; this skill auto-loads when the task involves any of the operations listed in the trigger description above.
+This skill wraps {{PM_TOOL_NAME}}-MCP usage with **{{PROJECT_NAME}}-specific context**. Every persona file in `agents/` instructs Claude to check `skills/` and load matching skills before starting work; this skill auto-loads when the task involves any of the operations listed in the trigger description above.
 
 > **Source of truth.** {{PM_TOOL_NAME}} is authoritative for ticket status, milestone progress, and assignments. `pm/backlog.md` exists in this repo as a thin pointer + milestone framework summary — it is **not** updated as tickets move. Any "what's the current state?" question routes here, not to the file.
 
@@ -71,7 +71,7 @@ For follow-ups discovered while working another ticket, file a new {{PM_TOOL_NAM
 
 ### Link a PR to a ticket
 
-{{PM_TOOL_NAME}}'s GitHub integration auto-links any PR whose **branch name** or **PR title** contains an `{{PM_ISSUE_PREFIX}}-N` reference. Branch and title conventions are documented in `CLAUDE.md`'s git workflow section. The orchestrator's dispatch loop verifies the link reflects reality after each PR opens.
+{{PM_TOOL_NAME}}'s GitHub integration auto-links any PR whose **branch name** or **PR title** contains an `{{PM_ISSUE_PREFIX}}-N` reference. Branch and title conventions are documented in `AGENTS.md`'s git workflow section. The orchestrator's dispatch loop verifies the link reflects reality after each PR opens.
 
 ### Filter / group by persona at planning time
 

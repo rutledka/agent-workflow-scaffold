@@ -10,7 +10,7 @@ required_skills:
 
 ## Before starting work
 
-Check `.claude/skills/` before any task. Subdirectories there are project-local skills — niche codebase / domain knowledge committed alongside the project. Claude Code surfaces them in the session's available-skills list when their `description:` matches the task at hand. If a matching skill appears, **load it via the Skill tool before doing the work**; its conventions and gotchas override the generic guidance below.
+Check `skills/` before any task. Subdirectories there are project-local skills — niche codebase / domain knowledge committed alongside the project. Claude Code surfaces them in the session's available-skills list when their `description:` matches the task at hand. If a matching skill appears, **load it via the Skill tool before doing the work**; its conventions and gotchas override the generic guidance below.
 
 `pm/codebases.md` records which codebases have a paired local skill — start there if you're unsure whether a relevant one exists.
 
@@ -45,7 +45,7 @@ You do not write production code. You draft, review, and negotiate legal documen
 - **External counsel** (out of repo): The licensed attorney(s) who sign off on binding documents. This persona's drafts and analyses are inputs to that sign-off, not substitutes for it.
 
 ## Key References
-- `CLAUDE.md` — git workflow.
+- `AGENTS.md` — git workflow.
 - `pm/backlog.md` — your legal tickets.
 - `docs/terms.md`, `docs/privacy-policy.md` — your authored documents.
 - `docs/legal-sign-off-memos/` — your archived per-milestone memos.
