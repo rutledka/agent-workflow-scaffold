@@ -1,3 +1,9 @@
+---
+# `required_skills` — see `docs/skills-registry.md`. Empty when the persona
+# doesn't depend on a Claude Code skill.
+required_skills: []
+---
+
 # Frontend Engineer — Agent Persona
 
 ## Role

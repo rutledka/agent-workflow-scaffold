@@ -42,6 +42,7 @@ templates/
 ├── docs/
 │   ├── README.md
 │   ├── adr/0000-template.md           # ADR template
+│   ├── skills-registry.md             # known skills + install commands (Step 4c)
 │   └── dispatch-logs/.gitkeep
 └── memory/
     ├── MEMORY.md                      # index, with starter entries linked
@@ -101,6 +102,7 @@ Files always written:
 | `templates/pm/README.md` | `<project>/pm/README.md` | `{{PROJECT_NAME}}` |
 | `templates/docs/README.md` | `<project>/docs/README.md` | `{{PROJECT_NAME}}` |
 | `templates/docs/adr/0000-template.md` | `<project>/docs/adr/0000-template.md` | none |
+| `templates/docs/skills-registry.md` | `<project>/docs/skills-registry.md` | none |
 | `templates/docs/dispatch-logs/.gitkeep` | `<project>/docs/dispatch-logs/.gitkeep` | none |
 | `templates/mcp.example.json` | `<project>/.mcp.example.json` | none — but mark which integrations are enabled in Step 4b |
 | `templates/integrations.md` *(if any integration enabled)* | `<project>/docs/integrations.md` | none |
@@ -164,6 +166,36 @@ For the authoritative-PM-source answer:
 - Does **not** modify the user's personal MCP config (`~/.claude/`-level files). The user authenticates each connector themselves via OAuth on first invocation. Tell them: "Claude Code will prompt you to authenticate each enabled MCP on first use."
 - Does **not** commit `.mcp.json`. Only `.mcp.example.json` is checked in. The `.mcp.json` working file is gitignored.
 - Does **not** recommend community / unofficial MCPs from this scaffold. If the user asks for one not on the list, tell them to evaluate vendor-official status before adopting and that this skill only ships vetted recommendations.
+
+### Step 4c — Check persona skill prerequisites
+
+Each persona file ships with a `required_skills:` YAML frontmatter list (see `templates/agents/README.md` for the convention and `templates/docs/skills-registry.md` for the canonical install commands). The standard six personas leave this list empty; **only personas the user has customized (or new ones added later) typically declare skills.** Run this step every scaffold invocation — including re-runs — so customization-driven dependencies don't drift unnoticed.
+
+**Procedure:**
+
+1. **Collect required skills.** Read every `agents/*.md` file just generated (or already present, if a re-run). For each file, parse the YAML frontmatter at the top and extract `required_skills:`. Aggregate into a deduplicated list across all personas.
+2. **If the aggregated list is empty:** print one line — "No persona declares a required skill. Skipping skill check." — and continue to Step 5. Don't prompt for nothing.
+3. **If non-empty:** for each skill, classify it against the registry at `templates/docs/skills-registry.md` (which you've already written into the user's `docs/skills-registry.md`). The registry tells you the source: `plugin`, `git`, `builtin`, or `private`.
+4. **Cross-reference the user's installed skills.** Skills surfaced in your current session's `<available-skills>` system reminder are installed. Anything in the aggregated list that doesn't appear there is missing.
+5. **Group missing skills by source and prompt the user once per source:**
+
+   - **Plugin skills** (e.g. `figma:figma-use`): print the `/plugin install <plugin>` command for each unique plugin namespace. Tell the user these run from inside Claude Code, not the shell.
+   - **Git skills** (e.g. `agent-workflow-scaffold` itself): offer two install scopes — user-scoped (`git clone … ~/.claude/skills/<name>`) and project-scoped (`git submodule add …`). Ask which the user prefers; default to user-scoped if they don't say. Offer to run the command yourself; do **not** run it without consent.
+   - **Builtin skills:** mention them only if they're somehow not surfacing — most often the user is on an outdated Claude Code version. Tell them to upgrade.
+   - **Private skills** (canonical install URL is team-internal — `legal-advisor` is the typical example): print the persona's name and the placeholder install command from the registry. Tell the user to substitute the team-private URL or to ask the persona owner.
+
+6. **Don't block scaffold completion on uninstalled skills.** Print a clear summary of what's missing and how to install it, then continue to Step 5. Reasons:
+   - The user can install skills any time after scaffolding.
+   - Some skills require credentials / SSO that the scaffold can't provide.
+   - Re-running the scaffold (or invoking the persona later) re-runs this check, so nothing falls through the cracks.
+
+7. **Append a "Required skills" section to the bottom of `agents/README.md`** in the user's project listing each (persona → skill) dependency in a small table. This is the single readable summary a contributor sees when joining the project.
+
+**What this step does NOT do:**
+
+- Does **not** modify `~/.claude/skills/` without explicit user consent for each skill.
+- Does **not** add `.claude/skills/` to `.gitignore` — project-scoped skills are intentionally version-controlled.
+- Does **not** invent install commands for skills it doesn't know. If a persona's `required_skills:` entry has no registry match, print "no install command on file — add an entry to `docs/skills-registry.md`" and skip it.
 
 ### Step 5 — Bootstrap memory
 

@@ -72,8 +72,9 @@ The skill will:
 4. Generate the universal-subset files: `CLAUDE.md`, `agents/orchestrator.md` + chosen personas, `pm/backlog.md`, `pm/management.md`, `pm/roadmap.md`, `docs/README.md`, `docs/adr/0000-template.md`, `docs/dispatch-logs/.gitkeep`, `.gitignore`.
 5. Ask follow-up questions specific to your stack (Zod / typecheck / migration policy / API spec / etc.) and add the answers to a "Project-specific rules" section in `CLAUDE.md`.
 6. Ask which **trusted MCP integrations** the team uses (Linear, Atlassian, Notion, Slack, GitHub, Figma). For each yes, marks the entry `_enabled: true` in a generated `.mcp.example.json`, copies `docs/integrations.md` into the project, and notes the integration in `agents/orchestrator.md`. The list is restricted to vendor-published, OAuth-secured MCPs — see [`docs/integrations.md`](./docs/integrations.md) for the trust criteria.
-7. Bootstrap five starter memory entries about the workflow's conventions (worktree+PR discipline, worktrees-not-siblings, document version+history, decisions-via-ADR, prefer-concrete-comparisons).
-8. Print a summary of what was written and the recommended next steps.
+7. **Check persona skill prerequisites.** Each persona declares its required Claude Code skills via a `required_skills:` YAML frontmatter list. The scaffold reads those, cross-references [`docs/skills-registry.md`](./templates/docs/skills-registry.md) (which gets copied into your project), and prompts to install anything missing — both during the first scaffold run and on every re-run. The standard six personas declare no skills; this only kicks in once you customize a persona to depend on one (e.g. a Product Designer persona that needs `figma:figma-use`).
+8. Bootstrap five starter memory entries about the workflow's conventions (worktree+PR discipline, worktrees-not-siblings, document version+history, decisions-via-ADR, prefer-concrete-comparisons).
+9. Print a summary of what was written and the recommended next steps.
 
 Re-running the skill on the same project re-detects existing files and asks before overwriting — so it's safe to run again after a major project pivot.
 
@@ -101,6 +102,7 @@ Re-running the skill on the same project re-detects existing files and asks befo
 └── docs/
     ├── README.md
     ├── integrations.md                # if any MCP integration was enabled
+    ├── skills-registry.md             # known Claude Code skills + install commands
     ├── adr/
     │   └── 0000-template.md
     └── dispatch-logs/

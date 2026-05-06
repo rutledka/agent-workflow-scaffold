@@ -1,3 +1,13 @@
+---
+# `required_skills` lists Claude Code skills this persona depends on. The
+# scaffold (and re-runs of it) cross-reference this list against the skills
+# registry at `docs/skills-registry.md` and the user's installed skills,
+# prompting to install anything missing. Leave empty when the persona
+# doesn't depend on a skill. See `docs/skills-registry.md` for the
+# canonical skill names + install commands.
+required_skills: []
+---
+
 # Orchestrator — Agent Persona
 
 ## Role
