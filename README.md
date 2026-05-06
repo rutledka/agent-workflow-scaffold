@@ -183,6 +183,21 @@ The orchestrator is what turns "we have agent personas" into "we have an executa
 
 ---
 
+## Migrating an older scaffold
+
+If your project was scaffolded against an older version of this skill, the layout has likely drifted from current conventions — `CLAUDE.md` may be a regular file rather than a symlink to `AGENTS.md`, `.claude/skills/` may be a real directory rather than a symlink to `../skills/`, persona files may lack the `required_skills:` frontmatter, or registry files (`docs/skills-registry.md`, `docs/tech-docs-registry.md`, `docs/feature-overlap-registry.md`) and `pm/codebases.md` may be missing entirely.
+
+**Re-invoke `/agent-workflow-scaffold` from inside the project.** The skill's **Step 1.5 — Detect drift** runs a per-item drift scan and presents a migration plan you confirm before any writes. The migration:
+
+- Runs inside a worktree (per the scaffold's own discipline) and opens a PR — nothing lands directly on `main`.
+- Stages each drift fix as a separate commit (`D1: rename CLAUDE.md → AGENTS.md + symlink`, `D2: move .claude/skills → skills/ + symlink`, etc.) so you can review per-item.
+- Preserves git history (`git mv` for renames; persona body content is preserved verbatim when frontmatter is prepended).
+- Is idempotent — running on a fully-migrated project detects no drift and skips Step 1.5 entirely.
+
+You can also pick which fixes to apply (`migrate D1 D2 D3`), skip migration to layer new work onto the existing artifacts (`skip` — drift surfaced in the Step 9 summary so you don't lose it), or abort and resolve manually.
+
+---
+
 ## Customization
 
 The scaffold is opinionated by design — it ships the patterns the methodology actually relies on, not a config-explosion of toggles. To customize:

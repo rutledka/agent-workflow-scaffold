@@ -99,7 +99,80 @@ When the user invokes you, follow these steps in order. Do not skip any. The flo
 Read the current working directory. Determine:
 
 1. Is this a git repo already (`.git/` exists)? If not, recommend the user run `git init` first, but offer to scaffold anyway and remind them at the end.
-2. Does the project already have any of `AGENTS.md`, `agents/`, `pm/`, or `docs/dispatch-logs/`? If yes, **stop and ask the user how to proceed** — overwrite, merge, or abort. Don't blindly overwrite their existing artifacts.
+2. Does the project already have any of `AGENTS.md`, `agents/`, `pm/`, or `docs/dispatch-logs/`? If yes, this is either a **previously-scaffolded project** or a **legacy-scaffolded project** (one set up against an older version of this skill that's drifted from current conventions). Don't blindly overwrite — instead:
+   - Run **Step 1.5 — Detect drift** below to classify which kind of \"already scaffolded\" you're looking at.
+   - Based on the drift report, ask the user how to proceed: **migrate** (apply the drift plan), **continue as discovery** (Step 2 interview, then layer onto existing artifacts), or **abort**.
+
+### Step 1.5 — Detect drift (run when Step 1 found existing artifacts)
+
+Older scaffolded projects have a different artifact layout than the current scaffold's output — `CLAUDE.md` as a regular file (not a symlink to `AGENTS.md`), `.claude/skills/` as a real directory (not a symlink to `../skills/`), persona files without `required_skills:` frontmatter, missing `pm/codebases.md`, missing registry files. Bare Step 1 detection (\"does `agents/` exist?\") returns **yes** for both shapes and treats them identically — but they need different handling. A current-scaffold project just needs Step 2's discovery to layer new work; a legacy project needs a **migration plan** first.
+
+Run these detectors **in order**, recording each as `current` (no drift) or `legacy` (needs migration). Idempotent — running on a fully-migrated project detects no drift and reports `current` everywhere.
+
+| # | Drift detector | Bash check | Migration action if `legacy` |
+|---|---|---|---|
+| D1 | `CLAUDE.md` is a regular file (not a symlink) | `[ -f CLAUDE.md ] && [ ! -L CLAUDE.md ]` | Rename `CLAUDE.md` → `AGENTS.md`; create symlink `CLAUDE.md → AGENTS.md`. Prepend the agents.md preamble to `AGENTS.md` if missing. |
+| D2 | `.claude/skills/` is a real directory (not a symlink) | `[ -d .claude/skills ] && [ ! -L .claude/skills ]` | Move every subdir/file from `.claude/skills/` to `skills/` (using `git mv` so history follows), `rmdir .claude/skills`, create symlink `.claude/skills → ../skills`. Add `skills/README.md` if missing. |
+| D3 | `agents/*.md` files lack YAML frontmatter | `for f in agents/*.md; do head -1 "$f" \| grep -qE '^---$' \|\| echo "$f"; done` (any output → drift) | Prepend `---\nrequired_skills: []\n---\n\n` and the standard \"## Before starting work\" prelude to each persona that lacks frontmatter. Preserve all existing body content verbatim. |
+| D4 | Missing `pm/codebases.md` | `[ ! -f pm/codebases.md ]` | Author `pm/codebases.md` from `templates/pm/codebases.md`. If the user has external codebases, run Step 2b (interview Q12 only) to populate Variant A entries; otherwise produce one Variant B entry for the project itself with stack inferred from manifests at `code/*/`, `apps/*/`, etc. |
+| D5 | Missing `docs/skills-registry.md` | `[ ! -f docs/skills-registry.md ]` | Copy from `templates/docs/skills-registry.md`. |
+| D6 | Missing `docs/tech-docs-registry.md` | `[ ! -f docs/tech-docs-registry.md ]` | Copy from `templates/docs/tech-docs-registry.md`. |
+| D7 | Missing `docs/feature-overlap-registry.md` | `[ ! -f docs/feature-overlap-registry.md ]` | Copy from `templates/docs/feature-overlap-registry.md`. |
+| D8 | Missing AGENTS.md \"Rule: Dispatching sub-agents\" section | `! grep -q 'Rule: Dispatching sub-agents' AGENTS.md 2>/dev/null` (after D1 if applicable) | Insert the standard sub-agent-dispatch section in `AGENTS.md` after the referenced-codebases rule. |
+| D9 | Missing `templates/memory/feedback-subagent-write-permissions.md`-equivalent in user memory | check whether `feedback-subagent-write-permissions.md` is in the user's memory dir for this project | Seed the memory file (Step 8 mechanism). |
+
+#### Surface the drift report
+
+After running all detectors, present the drift report to the user **before** writing anything. Use a single message:
+
+```
+This project is already scaffolded, but some artifacts are on an older
+shape than the current scaffold ships. I can migrate them in place — git
+history is preserved (renames use `git mv`), nothing is overwritten without
+a per-item confirmation, and you'll review the plan before any writes.
+
+Drift detected:
+  D1 ✗ CLAUDE.md is a regular file        → rename to AGENTS.md + symlink
+  D2 ✗ .claude/skills/ is a real directory → move to skills/ + symlink
+  D3 ✗ 6 personas lack required_skills frontmatter
+       (agents/backend-engineer.md, agents/frontend-engineer.md, ...)
+       → prepend frontmatter + "Before starting work" prelude
+  D4 ✗ pm/codebases.md is missing
+       → author with one Variant B entry for `code/backend/` (NestJS detected)
+  D5 ✓ docs/skills-registry.md present
+  D6 ✓ docs/tech-docs-registry.md present
+  D7 ✗ docs/feature-overlap-registry.md missing
+       → copy from template
+  D8 ✗ AGENTS.md missing "Rule: Dispatching sub-agents"
+       → insert after referenced-codebases rule
+  D9 ✗ feedback-subagent-write-permissions.md missing from user memory
+       → seed via Step 8 mechanism
+
+Reply:
+  "migrate"     — apply all drift fixes above (recommended)
+  "migrate D1 D2 D3" — apply only the listed items
+  "skip"        — leave drift alone; treat this as a discovery run on top
+                  of existing artifacts (Step 2 interview, layer new work)
+  "abort"       — exit; user resolves drift manually
+```
+
+Do not proceed until the user confirms or amends.
+
+#### Apply the migration plan
+
+For each confirmed drift item, apply the migration action **inside a worktree** (the scaffold is changing files in the user's repo — same worktree-and-PR discipline AGENTS.md describes for any other work). The scaffold:
+
+1. Creates a worktree at `.worktrees/scaffold/migrate-<YYYYMMDD-HHMM>` off the current HEAD.
+2. Applies each confirmed drift fix in the worktree, in detector order (D1 → D9). Order matters: D1 (CLAUDE.md → AGENTS.md) must complete before D8 (which edits AGENTS.md), and D2 (skills move) must complete before D5–D7 (which write under `docs/` but reference `skills/README.md`).
+3. Stages each fix as a separate commit so the user can review the diff per drift item: `D1: rename CLAUDE.md → AGENTS.md + symlink`, `D2: move .claude/skills → skills/ + symlink`, etc.
+4. Pushes the branch and opens a PR with the drift report as the body.
+5. Reports the PR URL — the user reviews and merges.
+
+If the user picked `skip`, proceed to Step 2 with a flag noting which detectors were skipped. The Step 9 summary will surface the unmigrated drift so the user can return to it later.
+
+#### Idempotent re-run
+
+Running this skill on a fully-migrated project produces an all-`✓` drift report and skips Step 1.5 entirely (no PR opened, no migration prompts). Running on a partially-migrated project (e.g. user resolved D1–D5 manually but not D8–D9) produces a drift report showing only the remaining items.
 
 ### Step 2 — Discovery interview
 
@@ -1216,6 +1289,17 @@ PM source of truth:
      "Asana / Trello / etc. (no vendor MCP) — pm/backlog.md is the live source"
      "Files only — pm/backlog.md is the live source">
   (omit this section if Q9a wasn't asked / answered)
+
+Migration drift (from Step 1.5):
+  Migrated:    <list each drift detector that was applied via the migration PR,
+                e.g. "D1, D2, D3, D4, D7, D8, D9 — see PR <url>">
+  Skipped:     <list each detector the user chose to skip — these remain as
+                drift in the user's working tree and should be migrated later.
+                Each entry: "D<N>: <one-line description> — fix: <action>">
+                Example: "D2: .claude/skills/ is still a real directory —
+                fix: re-run /agent-workflow-scaffold and pick `migrate D2`"
+  (omit this section if Step 1.5 didn't run, ran with no drift, or the user
+   chose 'abort')
 
 Files written:
   <list every other path you wrote, with relative paths>
