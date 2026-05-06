@@ -311,7 +311,33 @@ Cross-reference each detected technology against `templates/docs/tech-docs-regis
 
 For each technology with a registry entry, capture the **Doc URL** to inject into owning personas in Step 4.
 
-If a technology appears in the codebase but is **not** in the registry, surface it to the user with: "I detected `<tech>` but don't have a docs link on file. Want to add one to `docs/tech-docs-registry.md`?" — this is the registry-extension prompt. Don't block on it; proceed without the link if the user defers.
+##### Auto-stub unrecognized tech (don't ask-and-defer)
+
+If a technology appears in the codebase but is **not** in `docs/tech-docs-registry.md`, **append a TODO row** to the user's local registry instead of asking and proceeding-without-the-link. The previous version's "want to add one?" prompt is too easy to defer mid-discovery; the result is a permanent gap nobody comes back to fix.
+
+For each unrecognized tech, append a row to a dedicated section at the bottom of `<project>/docs/tech-docs-registry.md`:
+
+```markdown
+## Detected during codebase scan — needs review
+
+| Detector | Technology | Doc URL | Notes |
+| --- | --- | --- | --- |
+| `<package-name>` | <inferred-pretty-name> | `# TODO: official docs URL` | Detected in `<codebase-name>`, scan date `<YYYY-MM-DD>`. Replace this row with a real entry once the URL is found. |
+```
+
+**Idempotency.** Before appending, grep the existing registry for the detector string:
+
+```bash
+grep -F "| \`<package-name>\` |" docs/tech-docs-registry.md
+```
+
+If the detector is already listed (in either the curated sections or the auto-stub section), skip — don't duplicate. The user may have already replaced the TODO with a real entry; re-running the scaffold should pick that up rather than re-stubbing.
+
+**Heading creation.** If the `## Detected during codebase scan — needs review` heading doesn't exist yet, create it (with the table header row) before the first append. Subsequent runs append rows under the existing heading.
+
+**Don't auto-stub the canonical templates.** These TODOs land in the user's *project copy* of the registry, not in `templates/docs/tech-docs-registry.md` in this skill repo. The canonical templates stay curated and small.
+
+Track the count of TODO rows added (separately for first-time appends and skipped duplicates) for Step 9's summary.
 
 #### 2b.6 — Detect feature-overlap candidates and ask about deprecation
 
@@ -338,7 +364,34 @@ On `Y`, record a deprecation note to add to the codebase's `pm/codebases.md` ent
 
 > Use `<newer-lib>`; `<older-lib>` is deprecated in this project (since <date> per scaffold scan / user confirmation). Do not extend `<older-lib>`-using code; migrate to `<newer-lib>` opportunistically when touching adjacent files.
 
-On `n` or `skip`, record nothing — the libraries legitimately coexist or the user isn't sure yet. The scaffold can re-ask on the next run if the gap widens.
+On `n` (legitimately coexist), record nothing — the user has explicitly said the pair is fine.
+
+##### Auto-stub deferred candidates (don't drop them on `skip`)
+
+On `skip` (the user isn't sure yet), **append a "needs review" entry** to the user's local `docs/feature-overlap-registry.md`. Like 2b.5, the previous "skip and forget" path lost the signal entirely; the candidate disappeared between runs even though it was still real.
+
+Append to a dedicated section at the bottom of `<project>/docs/feature-overlap-registry.md`:
+
+```markdown
+## Detected overlap — needs review
+
+### <category description>
+
+- `<older-lib>` — last touched <older-date>; detected in <codebase-name>
+- `<newer-lib>` — introduced <newer-date>; detected in <codebase-name>
+
+The user deferred the deprecation question on this pair (scan date <YYYY-MM-DD>). Decide whether `<older-lib>` is deprecated in this project and update the relevant persona's Working patterns accordingly.
+```
+
+**Idempotency.** Before appending, grep for the pair:
+
+```bash
+grep -F "<older-lib>" docs/feature-overlap-registry.md | grep -q "needs review"
+```
+
+If a "needs review" entry for this pair already exists, skip — the user is still deferring and re-stubbing adds noise. Re-running the scaffold after the user has resolved the pair (either by replacing the entry with a real "Use X; Y is deprecated" note or by deleting it) will re-detect and re-prompt cleanly.
+
+Track the count of "needs review" entries added (and skipped duplicates) for Step 9's summary.
 
 #### 2b.7 — Decide whether the codebase warrants a project-local skill
 
@@ -1216,6 +1269,18 @@ PM source of truth:
      "Asana / Trello / etc. (no vendor MCP) — pm/backlog.md is the live source"
      "Files only — pm/backlog.md is the live source">
   (omit this section if Q9a wasn't asked / answered)
+
+Registry stubs added (from Step 2b.5 / 2b.6):
+  Tech-docs TODOs:    <count> rows added to docs/tech-docs-registry.md
+                      under "Detected during codebase scan — needs review".
+                      Replace each row's "# TODO: official docs URL" with
+                      a real URL when convenient.
+  Overlap candidates: <count> entries added to docs/feature-overlap-registry.md
+                      under "Detected overlap — needs review". For each pair,
+                      decide whether the older lib is deprecated and either
+                      replace the entry with a real "Use X; Y is deprecated"
+                      note or delete it.
+  (omit this section if no auto-stubs were added)
 
 Files written:
   <list every other path you wrote, with relative paths>
