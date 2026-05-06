@@ -41,6 +41,54 @@ echo 'dotenv' > .envrc && direnv allow
 
 If the agent's session doesn't have the token, every API call will fail with `401 Unauthorized`. Surface that loudly rather than silently — a missing token is a setup gap, not an API outage.
 
+### Token storage and rotation
+
+The default install puts `{{PM_TOOL_AUTH_ENV_VAR}}` in `.env` (gitignored). That works for solo / first-week setups but has known gotchas — read these before scaling beyond one developer.
+
+**Rotation.** Personal access tokens issued from {{PM_TOOL_NAME}} should rotate on a cadence the team agrees on. **90 days is a reasonable default**; some teams use 30 for higher-security postures. Set a calendar reminder when you generate the token — the scaffold doesn't track expiry, and a leaked-but-not-rotated token is the typical failure mode. Store the rotation date in your team's secrets-management notes alongside who's responsible.
+
+**Test isolation.** A token in `.env` will be loaded by integration tests unless the project uses a separate `.env.test` (or a CI-only secret). If your project has tests that hit {{PM_TOOL_NAME}}, isolate the test token from the dev token — a CI run that creates / mutates / closes real tickets will surprise teammates. The standard pattern: a separate test workspace + a separate token + `.env.test` overrides.
+
+**Sharing across teammates.** Don't share `.env` over email / Slack / DM. Pick one of:
+
+- **1Password CLI** (recommended for most teams):
+  ```bash
+  # Once: store the token in 1Password
+  op item create --category="API Credential" --title="{{PM_TOOL_NAME}} PAT" \
+    --vault=Engineering credential=<your-token>
+
+  # Each shell session:
+  export {{PM_TOOL_AUTH_ENV_VAR}}=$(op item get "{{PM_TOOL_NAME}} PAT" --fields credential --reveal)
+
+  # Or inline for one command:
+  {{PM_TOOL_AUTH_ENV_VAR}}=$(op item get "{{PM_TOOL_NAME}} PAT" --fields credential --reveal) \
+    <command>
+  ```
+
+- **`gh secret`** for CI runners that need access (works for GitHub Actions; mirrors exist for other CIs):
+  ```bash
+  gh secret set {{PM_TOOL_AUTH_ENV_VAR}}
+  ```
+
+- **`pass`** or **system keychain** for local-only dev:
+  ```bash
+  # macOS keychain
+  security add-generic-password -s "{{PM_TOOL_NAME}}" -a "$USER" -w
+  export {{PM_TOOL_AUTH_ENV_VAR}}=$(security find-generic-password -s "{{PM_TOOL_NAME}}" -w)
+
+  # `pass` (any platform with GnuPG)
+  pass insert {{PM_TOOL_NAME}}/api-token
+  export {{PM_TOOL_AUTH_ENV_VAR}}=$(pass {{PM_TOOL_NAME}}/api-token)
+  ```
+
+If you adopt a non-`.env` strategy, the auth-loading shell snippet above (`export $(grep -v '^#' .env | xargs)`) won't fire — your `1Password CLI` / `keychain` / `pass` invocation supplies the token directly.
+
+**What not to do:**
+
+- Don't commit `.env` — even if the token is dev-only and the workspace is throwaway. The same token will get reused later, and git history is permanent.
+- Don't put the token in `.env.example`. The example is committed; the token isn't.
+- Don't pass the token on the command line as an argument (`<tool> --token=<value>`). It lands in shell history and `ps` output.
+
 ---
 
 ## Project-specific {{PM_TOOL_NAME}} context
