@@ -93,5 +93,5 @@ echo
 echo "Next steps:"
 echo "  1) Open Claude Code in your project."
 echo "  2) Invoke the skill:  /$SKILL_NAME"
-echo "  3) Answer the four scoping questions; the skill will do the rest."
+echo "  3) Answer the discovery interview; the skill will do the rest."
 echo
