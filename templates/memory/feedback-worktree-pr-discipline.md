@@ -14,4 +14,4 @@ Every task — including small docs changes — moves through a git worktree at 
 - Commit, push, and open a PR with `gh pr create` before reporting the task as complete.
 - Remove the worktree after the PR is open; the branch lives on origin.
 - If a hook fails, fix the underlying issue — never `--no-verify`.
-- The exact rules live in `CLAUDE.md` at the repo root; read it before each task.
+- The exact rules live in `AGENTS.md` at the repo root; read it before each task.

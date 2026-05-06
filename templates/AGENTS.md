@@ -1,4 +1,6 @@
-# {{PROJECT_NAME}} — Claude Code Guidelines
+# {{PROJECT_NAME}} — Agent Guidelines
+
+> **About this file.** `AGENTS.md` is the canonical, vendor-neutral home for agent instructions in this project — following the [agents.md](https://agents.md) convention. `AGENTS.md` (Claude Code's expected filename) is a symlink to this file. If you adopt other AI coding tools later (Cursor, Cline, Aider, codename-Y), point their convention at this same file rather than maintaining parallel copies.
 
 ## Repository
 - Remote: `git@github.com:{{REPO_OWNER_REPO}}.git`
@@ -7,7 +9,7 @@
 
 ## Git Workflow — MANDATORY for all agents
 
-This applies to **every agent** — including the primary Claude Code session, spawned sub-agents, and any automated pipeline. **No direct commits to `main`, ever.**
+This applies to **every AI coding agent** — primary sessions, spawned sub-agents, and any automated pipeline. **No direct commits to `main`, ever.**
 
 ### Rule: Work in a worktree, ship via pull request
 
@@ -46,7 +48,7 @@ The scaffolded project may reference one or more **external codebases** at paths
 - **Worktrees still go inside the codebase.** When working in a referenced codebase at `<codebase-path>/`, create the worktree at `<codebase-path>/.worktrees/<branch-name>/`. Branch names follow the same `<agent-role>/<short-description>` pattern. The branch is created off the user's feature branch (not the base branch).
 - **`cd` into the codebase before starting work.** Agents dispatched on cross-codebase tickets must change directory into the codebase listed in `pm/codebases.md`, run `git fetch origin`, and confirm the user's feature branch is up to date before creating a worktree.
 
-This rule does **not** apply to the project where this `CLAUDE.md` lives — that one's git workflow uses `main` (or whatever the default branch is) as the PR target, per the previous section.
+This rule does **not** apply to the project where this `AGENTS.md` lives — that one's git workflow uses `main` (or whatever the default branch is) as the PR target, per the previous section.
 
 ### Commit message style
 - Imperative mood: `add`, `fix`, `refactor`, `remove` — not `added`, `fixed`.
@@ -68,15 +70,19 @@ This rule does **not** apply to the project where this `CLAUDE.md` lives — tha
 - Load-bearing decisions (architecture choices, framework selection, schema structure, auth model) go into a numbered ADR in `docs/adr/`, not into chat or commit messages. ADR template: `docs/adr/0000-template.md`.
 
 **Project-local skills**
-- Before starting any task, check `.claude/skills/` for project-local skills relevant to the codebase or section you're touching. Skills there capture niche knowledge that the generic persona working patterns don't cover (e.g. codebase-specific gotchas, team conventions, framework quirks). If a skill's `description:` matches the task at hand, **load it via the Skill tool before doing the work** — the skill's conventions and gotchas take precedence over the generic working patterns in your persona file. `pm/codebases.md` records which codebases have a paired local skill.
+- Before starting any task, check `skills/` for project-local skills relevant to the codebase or section you're touching. Skills there capture niche knowledge that the generic persona working patterns don't cover (e.g. codebase-specific gotchas, team conventions, framework quirks). If a skill's `description:` matches the task at hand, **load it via the Skill tool before doing the work** — the skill's conventions and gotchas take precedence over the generic working patterns in your persona file. `pm/codebases.md` records which codebases have a paired local skill. Claude Code reads skills via a symlink at `.claude/skills` → `../skills`; other AI agent platforms can read `skills/` directly without indirection.
 
 ## Project Structure
 
 ```
-agents/         — agent persona definitions (role-specific system prompts; not deployed code)
+agents/         — agent persona definitions (one .md per role)
 docs/           — technical documents, ADRs, dispatch logs, registries (skills, tech docs, feature overlap)
-pm/             — product backlog, roadmap, management notes, codebase registry
-.claude/skills/ — project-local Claude Code skills (codebase-niche knowledge, on-call playbooks, etc.)
+pm/             — product backlog, roadmap, management notes, codebase registry, goals
+skills/         — project-local agent skills (codebase-niche knowledge, on-call playbooks, etc.).
+                  Vendor-neutral path. Claude Code reads via .claude/skills → ../skills symlink.
+.claude/skills  — symlink to ../skills (Claude Code's expected path; do not create files here)
+CLAUDE.md       — symlink to AGENTS.md (Claude Code's expected filename; do not edit directly)
+AGENTS.md       — this file. The canonical source for agent guidelines. Edit here.
 ```
 
 ## Key Documents
@@ -86,7 +92,7 @@ pm/             — product backlog, roadmap, management notes, codebase registr
 - `pm/codebases.md` — external codebases this project's agents work on, with paths, base branches, user feature branches, tech inventory, and deprecation notes
 - `docs/adr/` — Architecture Decision Records (one file per decision)
 - `docs/dispatch-logs/` — orchestrator audit trail (`YYYY-MM-DD.md` per run)
-- `docs/skills-registry.md` — known Claude Code skills + install commands
+- `docs/skills-registry.md` — known agent skills + install commands (Claude Code-flavored today; structure is portable to other tools)
 - `docs/tech-docs-registry.md` — library / framework → official docs URL map; consumed by the codebase scan
 - `docs/feature-overlap-registry.md` — pairs of libraries with significant feature overlap; consumed by the codebase scan to surface deprecation candidates
 

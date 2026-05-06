@@ -2,7 +2,7 @@
 
 **Live execution status lives in {{PM_TOOL_NAME}}** — workspace {{PM_TOOL_WORKSPACE_URL}}, {{PM_TOOL_TEAM_OR_PROJECT_LABEL}} `{{PM_TOOL_TEAM_OR_PROJECT_NAME}}`, issue prefix `{{PM_ISSUE_PREFIX}}`. **This document is not the source of truth for tickets, milestones, or status.** It exists for the orchestrator dispatch loop's reference to the milestone framework, for cross-linking from `pm/management.md` and `pm/roadmap.md`, and as an offline-readable summary of the framework — but the live state is in {{PM_TOOL_NAME}}.
 
-For canonical milestone exit criteria, persona ownership, ticket detail, status, and assignments, **read {{PM_TOOL_NAME}}** (or query the `pm-{{PM_TOOL_SLUG}}-{{PROJECT_SLUG}}` skill at `.claude/skills/pm-{{PM_TOOL_SLUG}}-{{PROJECT_SLUG}}/SKILL.md`).
+For canonical milestone exit criteria, persona ownership, ticket detail, status, and assignments, **read {{PM_TOOL_NAME}}** (or query the `pm-{{PM_TOOL_SLUG}}-{{PROJECT_SLUG}}` skill at `skills/pm-{{PM_TOOL_SLUG}}-{{PROJECT_SLUG}}/SKILL.md`).
 
 ---
 

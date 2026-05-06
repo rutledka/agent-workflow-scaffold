@@ -132,7 +132,7 @@ For each "yes," the skill writes:
 
 1. An entry in `.mcp.example.json` at the repo root — the **example** file is checked in; users copy to `.mcp.json` (gitignored) and authenticate.
 2. A note in `agents/orchestrator.md`'s "Repository context" section so the orchestrator knows to use it.
-3. A line in the `Project-specific rules` section of `CLAUDE.md` if the integration affects coding rules (e.g., "PR description must include the Linear issue ID").
+3. A line in the `Project-specific rules` section of `AGENTS.md` if the integration affects coding rules (e.g., "PR description must include the Linear issue ID").
 
 The `.mcp.example.json` template ships with the skill at `templates/mcp.example.json`.
 

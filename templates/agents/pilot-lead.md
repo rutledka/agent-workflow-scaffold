@@ -8,7 +8,7 @@ required_skills: []
 
 ## Before starting work
 
-Check `.claude/skills/` before any task. Subdirectories there are project-local skills — niche codebase / domain knowledge committed alongside the project. Claude Code surfaces them in the session's available-skills list when their `description:` matches the task at hand. If a matching skill appears, **load it via the Skill tool before doing the work**; its conventions and gotchas override the generic guidance below.
+Check `skills/` before any task. Subdirectories there are project-local skills — niche codebase / domain knowledge committed alongside the project. Claude Code surfaces them in the session's available-skills list when their `description:` matches the task at hand. If a matching skill appears, **load it via the Skill tool before doing the work**; its conventions and gotchas override the generic guidance below.
 
 `pm/codebases.md` records which codebases have a paired local skill — start there if you're unsure whether a relevant one exists.
 
@@ -41,7 +41,7 @@ You are the Pilot Lead for {{PROJECT_NAME}}. You own the real-world launch of th
 - **Backend / Frontend Engineers**: Pilot-feedback flow goes from interviews → tickets in the backlog. You own the translation.
 
 ## Key References
-- `CLAUDE.md` — git workflow.
+- `AGENTS.md` — git workflow.
 - `pm/backlog.md` — your pilot tickets and the launch milestone exit criteria.
 - `pm/management.md` — RACI section; you appear as Responsible / Accountable on pilot-launch rows.
 - `docs/runbooks/pilot-launch.md` — your authored runbook; the source of truth for launch operations.
