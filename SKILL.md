@@ -186,9 +186,39 @@ Wait for answers before doing anything else. If the user gives a partial answer 
 
 ### Step 2b — Codebase setup (run once per codebase listed in Q12)
 
-Before synthesizing the persona proposal in Step 3, walk each codebase the user listed and gather the operational context the agents will need at dispatch time. Skip this step entirely if the user said "none yet" in Q12 (i.e. the project itself is the only codebase, and the standard worktree-and-PR rules from `AGENTS.md` cover it).
+Before synthesizing the persona proposal in Step 3, walk each codebase the user listed and gather the operational context the agents will need at dispatch time.
+
+**If the user said "none yet" in Q12** (i.e. the project itself is the only codebase), still produce one Variant B entry for the project — see 2b.0 below — so `pm/codebases.md` ships with the project's stack inventory ready for personas. The standard worktree-and-PR rules from `AGENTS.md` cover it; you skip 2b.2 / 2b.3 / 2b.4 (the git-remote / base-branch / user-feature-branch fields don't apply to in-repo workstreams).
+
+**If the user said "monorepo with workstreams"**, treat each named workstream subdirectory as a separate Variant B entry.
 
 For each codebase the user listed, perform these checks **in order**, then aggregate the results into a `pm/codebases.md` entry plan that you'll write in Step 4.
+
+#### 2b.0 — Pick the variant (external vs. in-repo)
+
+The `pm/codebases.md` template ships with two entry shapes:
+
+- **Variant A — external codebase:** absolute path on the user's machine, separate git remote, separate base branch shared with other contributors, separate user-owned feature branch agents target with PRs. The "never push to base branch" rule applies. Used for partner repos, separate-app repos, any codebase the user contributes to alongside other people.
+- **Variant B — in-repo workstream:** subdirectory of this project (e.g. `code/backend/`, `code/infra/`, `apps/web/`). Shares this repo's git history, this repo's base branch, this repo's worktree-and-PR flow per `AGENTS.md`. No separate base or feature branches. Used for monorepo workstreams and the "single repo, one project" case.
+
+Pick the variant per codebase the user listed:
+
+```bash
+# Resolve project root (the directory you're scaffolding into)
+project_root="$(pwd)"
+
+# Resolve the codebase path; compare absolute paths
+codebase_abs="$(cd "{{LOCAL_PATH}}" 2>/dev/null && pwd)" || codebase_abs="{{LOCAL_PATH}}"
+
+# Variant B if the codebase path resolves inside the project root
+case "$codebase_abs" in
+  "$project_root"|"$project_root"/*) variant="B" ;;
+  *) variant="A" ;;
+esac
+```
+
+Variant A continues with 2b.1 → 2b.2 → 2b.3 → 2b.4 → 2b.5 → 2b.6 → 2b.7.
+Variant B skips 2b.2 (the codebase is this project's git repo — already known), 2b.3 (the base branch is this project's default branch — already known), and 2b.4 (no separate user feature branch). It runs 2b.1 → 2b.5 → 2b.6 → 2b.7.
 
 #### 2b.1 — Verify the path exists
 
@@ -198,7 +228,7 @@ test -d "{{LOCAL_PATH}}" && echo OK || echo MISSING
 
 If the path is missing, ask the user to correct it (typo, wrong machine, etc.) before continuing. Don't skip — a wrong path means every subsequent agent dispatch fails.
 
-#### 2b.2 — Confirm it's a git repo and capture the remote
+#### 2b.2 — Confirm it's a git repo and capture the remote *(Variant A only)*
 
 ```bash
 cd "{{LOCAL_PATH}}" && git rev-parse --is-inside-work-tree && git remote get-url origin
@@ -206,7 +236,11 @@ cd "{{LOCAL_PATH}}" && git rev-parse --is-inside-work-tree && git remote get-url
 
 If the path is a directory but not a git repo, ask the user how to proceed: (a) `git init`, (b) skip this codebase, (c) abort and re-add later. Don't auto-init — that's a destructive choice on someone else's machine.
 
-#### 2b.3 — Detect the base branch
+For Variant B (in-repo workstream), this step is a no-op — the codebase is the current project's git repo and the remote is already known.
+
+#### 2b.3 — Detect the base branch *(Variant A only)*
+
+Skip for Variant B — the workstream lives in this project's repo, so its base branch is the project's default branch (already known).
 
 Try these git commands in order. Use the first one that returns a result:
 
@@ -227,7 +261,9 @@ If none resolve, ask the user explicitly: "Couldn't auto-detect the base branch 
 
 Record the result as the codebase's **Base branch**. This is the branch agents must NEVER push to directly.
 
-#### 2b.4 — Determine the user's feature branch
+#### 2b.4 — Determine the user's feature branch *(Variant A only)*
+
+Skip for Variant B — in-repo workstreams use this project's standard `AGENTS.md` worktree flow (branch off the default branch, PR back to it). No separate user feature branch.
 
 Ask the user: "What feature branch should agents target with PRs in `{{CODEBASE_NAME}}`?" Suggest a default of `<user-handle>/<project-slug>` if the user doesn't have a preference (e.g. `khalil/ar-graffiti-orchestration`).
 
@@ -339,14 +375,21 @@ The codebase's `pm/codebases.md` entry records the path to the local skill (a ne
 
 #### 2b.8 — Aggregate
 
-After completing 2b.1 through 2b.7a for all codebases, you have:
+After completing 2b.0 through 2b.7a for all codebases, you have:
 
-- A list of validated codebase paths + remote URLs + base branches + user feature branches.
+- A list of validated codebase paths, each tagged with **Variant A** or **Variant B**.
+- For Variant A: remote URLs, base branches, user feature branches.
 - A technology inventory per codebase with doc URLs ready to inject.
 - A list of confirmed deprecation notes per codebase.
 - A list of project-local skills drafted at `skills/<codebase-slug>/SKILL.md` (if any).
 
-Carry all of this into Step 3's synthesis. The synthesis proposal now includes the codebase entries the user will see, the local skills drafted, and the standard personas that own each codebase (no codebase-niche personas — niche knowledge lives in the local skills instead).
+Carry all of this into Step 3's synthesis. When Step 4 writes the populated `pm/codebases.md`, render each codebase using the matching variant block from `templates/pm/codebases.md`:
+
+- For Variant A entries, use the `## Variant A — external codebase entry template` block, substituting all placeholders.
+- For Variant B entries, use the `## Variant B — in-repo workstream entry template` block, substituting only the placeholders that apply (no remote URL, no base branch, no user feature branch).
+- Strip the `## Variant A — …` / `## Variant B — …` template-header lines and the HTML comment from the rendered output — the user's `pm/codebases.md` should contain only the populated entries plus the file's static introduction and footer.
+
+The synthesis proposal in Step 3d (Codebase plan summary) now includes the variant per codebase entry the user will see, the local skills drafted, and the standard personas that own each codebase (no codebase-niche personas — niche knowledge lives in the local skills instead).
 
 ### Step 3 — Synthesize a persona proposal, MCP shortlist, skill shortlist, and codebase plan; confirm with the user
 
@@ -418,20 +461,20 @@ Show one example of what `pm/backlog.md` will look like in their chosen mode (pa
 
 Summarize the codebase plan from Step 2b. For each codebase, show:
 
+- **Variant** — A (external codebase) or B (in-repo workstream)
 - Local path
-- Detected base branch (or "manual entry from user" if 2b.3 fell through)
-- Proposed user's feature branch (or "user creates manually" if 2b.4's offer was declined)
+- For Variant A only: detected base branch (or "manual entry from user" if 2b.3 fell through), proposed user's feature branch (or "user creates manually" if 2b.4's offer was declined)
 - Tech inventory bullets (one line each)
 - Deprecation candidates the user confirmed (if any)
 - Owning persona(s) — point at one or more entries from 3a
 - **Project-local skill** at `skills/<codebase-slug>/SKILL.md` if Step 2b.7 surfaced one, with a one-line description of what the drafted skill contains
 
-Example:
+Example with one of each variant:
 
 ```
-Codebase: api-server
+Codebase: api-server (Variant A — external)
   Path: /Users/khalil/Code/ar-graffiti-api
-  Base branch: main (auto-detected)
+  Base branch: main (auto-detected; read-only to agents)
   Your feature branch: khalil/ar-graffiti-api-orchestration
     (will be created from main, pushed to origin)
   Stack: TypeScript, NestJS, Postgres + PostGIS, ioredis
@@ -443,9 +486,16 @@ Codebase: api-server
     pinning gotcha, postgis/postgis:17-3.5 spinlock workaround, the
     idempotent-shutdown pattern. Open it after scaffolding and add
     anything I couldn't infer from the file scan.
+
+Codebase: backend (Variant B — in-repo workstream)
+  Path: code/backend/  (this project's repo; AGENTS.md main-branch flow applies)
+  Stack: Node 22, TypeScript, NestJS on Fastify, Postgres + PostGIS, Redis
+  Deprecation: (none)
+  Owned by: Backend Engineer, QA Engineer, Platform Engineer
+  Project-local skill: (none — covered by standard personas)
 ```
 
-If the user said "none yet" in Q12, omit this subsection — the project itself is the only codebase, and its base branch is the standard `main` covered in `AGENTS.md`.
+If the user said "none yet" in Q12, this subsection still appears: the project itself is registered as a single Variant B entry so personas have a stack-inventory pointer (the standard `main`-branch flow in `AGENTS.md` covers the workflow side).
 
 #### 3e. Confirmation
 
@@ -479,7 +529,7 @@ Files **always** written (the universal subset, not persona-dependent):
 | `templates/docs/skills-registry.md` | `<project>/docs/skills-registry.md` | none |
 | `templates/docs/tech-docs-registry.md` | `<project>/docs/tech-docs-registry.md` | none |
 | `templates/docs/feature-overlap-registry.md` | `<project>/docs/feature-overlap-registry.md` | none |
-| `templates/pm/codebases.md` | `<project>/pm/codebases.md` | per-codebase: `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{REMOTE_URL}}`, `{{BASE_BRANCH}}`, `{{USER_FEATURE_BRANCH}}`, `{{SCAN_DATE}}`, `{{LANGUAGES}}`, `{{FRAMEWORKS}}`, `{{BUILD_TOOLING}}`, `{{INFRASTRUCTURE}}`, `{{OTHER_LIBRARIES}}`, `{{OWNING_PERSONAS}}`, `{{DOC_LINKS}}`, `{{DEPRECATION_NOTES}}`, `{{LOCAL_SKILL_PATH}}` (all from Step 2b's scan) |
+| `templates/pm/codebases.md` | `<project>/pm/codebases.md` | Variant-aware (see Step 2b.0). For each codebase: pick Variant A or B, render the matching template block, strip the `## Variant <X> — …` header lines and the HTML comment from the rendered output. Variant A substitutions: `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{REMOTE_URL}}`, `{{BASE_BRANCH}}`, `{{USER_FEATURE_BRANCH}}`, `{{SCAN_DATE}}`, `{{LANGUAGES}}`, `{{FRAMEWORKS}}`, `{{BUILD_TOOLING}}`, `{{INFRASTRUCTURE}}`, `{{OTHER_LIBRARIES}}`, `{{OWNING_PERSONAS}}`, `{{DOC_LINKS}}`, `{{DEPRECATION_NOTES}}`, `{{LOCAL_SKILL_PATH}}`. Variant B substitutions: same minus `{{REMOTE_URL}}`, `{{BASE_BRANCH}}`, `{{USER_FEATURE_BRANCH}}`. |
 | `templates/skills/README.md` | `<project>/skills/README.md` | none |
 | `templates/skills/codebase-skill-template/SKILL.md` | *(only if Step 2b.7a drafted at least one)* `<project>/skills/<codebase-slug>/SKILL.md` per codebase | `{{SKILL_NAME}}`, `{{SKILL_DESCRIPTION}}`, `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{NICHE_TECH_OVERVIEW}}`, `{{CONVENTIONS_BULLETS}}`, `{{COMMON_GOTCHAS_BULLETS}}`, `{{INTERNAL_DOCS_LINKS}}` |
 | `templates/skills/pm-skill-template/SKILL.md` | *(only if Q9a chose Linear / Jira / Notion / GitHub — handled in Step 5b-MCP)* `<project>/skills/pm-<tool-slug>-<project-slug>/SKILL.md` | all `{{PM_TOOL_*}}` and `{{PM_*}}` placeholders from 5b-MCP.2's substitution map |
@@ -577,7 +627,7 @@ For every codebase Step 2b scanned, edit each owning persona file (the personas 
 2. **Inject deprecation notes into Working patterns.** For every confirmed deprecation note from 2b.6, append a working-pattern bullet of the form: "Use `<newer-lib>`; `<older-lib>` is deprecated in `<codebase-name>` (since `<date>`). Do not extend `<older-lib>`-using code; migrate when touching adjacent files." Place this in the persona whose surface the libraries cover (e.g. Backend Engineer for `jose` vs `jsonwebtoken`).
 3. **Add a Codebases section.** If the persona owns one or more codebases, add a new `## Codebases owned` section between Working patterns and Relationships, listing each codebase by name with a one-line scope description and a link to its `pm/codebases.md` entry.
 
-If the user declined to create a feature branch in 2b.4 for any codebase, add a follow-up note at the bottom of `pm/codebases.md` for that codebase: "**Pending user action:** create the user's feature branch (`{{USER_FEATURE_BRANCH}}`) from `{{BASE_BRANCH}}` and push to origin before any agent dispatch against this codebase."
+If the user declined to create a feature branch in 2b.4 for any **Variant A** codebase, add a follow-up note at the bottom of `pm/codebases.md` for that codebase: "**Pending user action:** create the user's feature branch (`{{USER_FEATURE_BRANCH}}`) from `{{BASE_BRANCH}}` and push to origin before any agent dispatch against this codebase." (Variant B entries don't have a separate feature branch and don't need this note.)
 
 ### Step 5 — Project-specific rules
 
@@ -597,23 +647,27 @@ For each "yes", append a one-line rule to the `## Project-specific rules` sectio
 
 If the user is unsure about a question, default to "yes" — rules are easier to relax than to introduce later. Tell them they can edit `AGENTS.md` to remove a rule any time.
 
-#### Multi-codebase rules (only if Step 2b scanned at least one codebase)
+#### Multi-codebase rules (only if Step 2b registered at least one Variant A external codebase)
 
-If `pm/codebases.md` was generated, append the following to the bottom of `AGENTS.md`'s `## Project-specific rules` (do not paraphrase — these are load-bearing for the multi-codebase PR discipline):
+If `pm/codebases.md` contains at least one **Variant A** (external codebase) entry, append the following to the bottom of `AGENTS.md`'s `## Project-specific rules` (do not paraphrase — these are load-bearing for the multi-codebase PR discipline):
 
 ```
-- When working in any codebase listed in `pm/codebases.md`, agents MUST
-  open PRs against that codebase's **User's feature branch**, NEVER
-  against its base branch. The base branch is read-only to agents; the
-  user merges from the feature branch to base via their own review
-  process.
-- Before dispatching a sub-agent on a ticket scoped to a referenced
+- When working in any external codebase listed in `pm/codebases.md`,
+  agents MUST open PRs against that codebase's **User's feature branch**,
+  NEVER against its base branch. The base branch is read-only to agents;
+  the user merges from the feature branch to base via their own review
+  process. (This rule applies only to Variant A entries — in-repo
+  workstreams (Variant B) follow this project's standard `main`-branch
+  flow.)
+- Before dispatching a sub-agent on a ticket scoped to a Variant A
   codebase, the orchestrator must read the codebase's `pm/codebases.md`
   entry and pass the local path, base branch, and user's feature branch
   to the sub-agent.
 ```
 
 These rules complement the existing "Rule: Working in *referenced* codebases" section in `AGENTS.md`'s Git Workflow chapter (which the universal template already includes). The Project-specific rules entry serves as the merge-time merge-blocker; the Git Workflow section is the operational handbook.
+
+If all `pm/codebases.md` entries are **Variant B** (in-repo workstreams), skip this sub-step — the standard `AGENTS.md` worktree-and-PR rules already cover them, and adding the Variant A rule would mislead agents into looking for non-existent feature branches.
 
 ### Step 5b — PM-tool wiring (run unless Q9a picked "Files only")
 
