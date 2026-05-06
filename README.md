@@ -59,6 +59,19 @@ This snapshots the skill at a point in time. Updates require re-running the curl
 
 > **Why `skills/` and not `.claude/skills/` directly?** The scaffold's methodology treats `skills/` as the canonical, vendor-neutral path for project-local skills; `.claude/skills` is a symlink to it so Claude Code's loader works without forcing a tool-specific directory name. Installing the scaffold to `.claude/skills/` directly works in the moment but breaks the convention — when you later run the scaffold and it tries to set up `.claude/skills → ../skills`, the directory already exists and the symlink isn't created, leaving `.claude/skills/` (containing the scaffold) split from `skills/` (containing the project-local skills the scaffold creates). The two-step install above keeps the layout consistent from day one.
 
+### Uninstall
+
+To remove the artifacts a scaffold run produced in a project (agents/, pm/, the registry files in docs/, .mcp config, the .claude/skills symlink, and the AGENTS.md/CLAUDE.md pair), run:
+
+```bash
+cd <your-scaffolded-project>
+bash <path-to-scaffold>/uninstall.sh
+```
+
+The script lists what it would remove, asks for confirmation, runs in a worktree, and opens a PR so you can review the diff before merging. It restores a user-authored CLAUDE.md if Step 4's merge had preserved one. ADR files in `docs/adr/00NN-*.md` and any hand-authored docs are never touched.
+
+Flags: `--dry-run` (preview), `--keep-pm` / `--keep-docs` / `--keep-skills` / `--keep-personas` / `--keep-mcp` / `--keep-claude-md` (granular preservation), `--remove-memory` (also clean up user-scoped memory entries), `--no-pr` (stop at commits in worktree), `--yes` (skip the confirm prompt). See `bash uninstall.sh --help` for details.
+
 ---
 
 ## Use
