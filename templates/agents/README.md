@@ -84,3 +84,9 @@ The scaffold's eleven off-the-shelf templates:
 4. If the new persona depends on Claude Code skills, list them in the `required_skills:` frontmatter — see below.
 
 When in doubt, **start with fewer personas**. A persona that nobody reads creates noise. Add a persona when you find yourself repeatedly explaining the same scope to a generic agent — that's the signal that the role wants its own file. Re-running `/agent-workflow-scaffold` revisits the discovery and proposes additions/removals without re-asking what hasn't changed.
+
+## Personas vs. project-local skills
+
+A common pitfall is creating a new persona for niche codebase knowledge — "AR Engineer" for an 8th Wall codebase, "FPGA Engineer" for a hardware codebase, etc. Don't do this. Personas describe **roles** (what someone does); the niche knowledge is **technical context** (how to do the thing in this specific codebase). Technical context belongs in a project-local Claude Code skill at `.claude/skills/<codebase-slug>/SKILL.md`.
+
+The scaffold's Step 2b.7 makes this distinction automatically: when it surfaces niche tech or team-specific gotchas during a codebase scan, it drafts a project-local skill instead of suggesting a custom persona. Every persona's **Before starting work** section instructs it to check `.claude/skills/` and load any matching skill before doing the work — the standard persona + the local skill is the right shape.
