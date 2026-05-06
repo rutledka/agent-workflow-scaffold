@@ -24,7 +24,7 @@ This skill's repo contains a `templates/` directory. Each file is the source of 
 
 ```
 templates/
-├── CLAUDE.md                          # universal rules subset
+├── CLAUDE.md                          # universal rules subset (incl. multi-codebase PR rule)
 ├── .gitignore                         # adds .worktrees/
 ├── agents/
 │   ├── orchestrator.md                # the dispatch loop — proposed by default in Step 3
@@ -37,17 +37,21 @@ templates/
 │   ├── product-designer.md            # proposed when discovery mentions Figma / design system
 │   ├── legal-advisor.md               # proposed when discovery mentions T&C / GDPR / compliance
 │   ├── pilot-lead.md                  # proposed when discovery mentions pilot / launch ops
-│   ├── custom-skeleton.md             # filled in for any role not covered above
+│   ├── custom-skeleton.md             # filled in for any role not covered above; also used for
+│   │                                  #   codebase-niche personas surfaced by Step 2b's scan
 │   └── README.md                      # the persona-file convention + frontmatter docs
 ├── pm/
 │   ├── backlog.md
 │   ├── management.md
 │   ├── roadmap.md
+│   ├── codebases.md                   # multi-codebase registry (Step 2b)
 │   └── README.md
 ├── docs/
 │   ├── README.md
 │   ├── adr/0000-template.md           # ADR template
-│   ├── skills-registry.md             # known skills + install commands (Step 7)
+│   ├── skills-registry.md             # known Claude Code skills + install commands (Step 7)
+│   ├── tech-docs-registry.md          # library / framework → official docs URL (Step 2b scan)
+│   ├── feature-overlap-registry.md    # overlapping libs → deprecation candidates (Step 2b scan)
 │   └── dispatch-logs/.gitkeep
 └── memory/
     ├── MEMORY.md                      # index, with starter entries linked
@@ -78,8 +82,9 @@ Read the current working directory. Determine:
 Replace the old "checkbox of six personas" question with a discovery interview. The persona set is **derived from the user's actual work**, not defaulted. Ask the questions below in a **single message**, grouped for legibility, and tell the user to skip any item that doesn't apply.
 
 ```
-Before suggesting personas I'd like to understand your role and the
-project. Answer whichever apply; skip the rest.
+Before suggesting personas I'd like to understand your role, the
+project, and the codebase(s) you work in. Answer whichever apply;
+skip the rest.
 
 About you:
 1) What's your role / job title?
@@ -113,13 +118,175 @@ About your tools:
     regulatory compliance, multi-cloud DR, payments / Stripe, on-call rota)
 11) First milestone — name + target. (e.g. "M0 Foundation, end of W3",
     or "M0 Foundation, target TBD" if it's not pinned yet)
+
+About your codebases:
+12) Do you work in a single codebase, multiple, or a monorepo? If
+    multiple, list the absolute path on this machine for each one
+    (e.g. /Users/you/Code/api-server, /Users/you/Code/mobile-app).
+    If "none yet" — i.e. this project is itself the codebase — say so.
+13) For each codebase you listed in 12, are there any technologies,
+    frameworks, or domain skills *distinct to that codebase* that
+    would benefit from its own persona? Niche examples include
+    AR/SLAM rendering pipelines, FPGA toolchains, ML training
+    infrastructure, embedded firmware, regulatory-specific code.
+    "No, the standard personas cover it" is a fine answer.
 ```
 
-Wait for answers before doing anything else. If the user gives a partial answer — e.g. only items 1, 3, 6, 7 — that's fine; proceed with what you have and infer rather than re-asking.
+Wait for answers before doing anything else. If the user gives a partial answer — e.g. only items 1, 3, 6, 7, 12 — that's fine; proceed with what you have and infer rather than re-asking.
 
-### Step 3 — Synthesize a persona proposal, MCP shortlist, and skill shortlist; confirm with the user
+### Step 2b — Codebase setup (run once per codebase listed in Q12)
 
-Do not generate files yet. Reason over the discovery answers and produce **three rolled-up proposals** in a single message. The user confirms or edits before any writes happen.
+Before synthesizing the persona proposal in Step 3, walk each codebase the user listed and gather the operational context the agents will need at dispatch time. Skip this step entirely if the user said "none yet" in Q12 (i.e. the project itself is the only codebase, and the standard worktree-and-PR rules from `CLAUDE.md` cover it).
+
+For each codebase the user listed, perform these checks **in order**, then aggregate the results into a `pm/codebases.md` entry plan that you'll write in Step 4.
+
+#### 2b.1 — Verify the path exists
+
+```bash
+test -d "{{LOCAL_PATH}}" && echo OK || echo MISSING
+```
+
+If the path is missing, ask the user to correct it (typo, wrong machine, etc.) before continuing. Don't skip — a wrong path means every subsequent agent dispatch fails.
+
+#### 2b.2 — Confirm it's a git repo and capture the remote
+
+```bash
+cd "{{LOCAL_PATH}}" && git rev-parse --is-inside-work-tree && git remote get-url origin
+```
+
+If the path is a directory but not a git repo, ask the user how to proceed: (a) `git init`, (b) skip this codebase, (c) abort and re-add later. Don't auto-init — that's a destructive choice on someone else's machine.
+
+#### 2b.3 — Detect the base branch
+
+Try these git commands in order. Use the first one that returns a result:
+
+```bash
+# 1. Most reliable — the remote's HEAD pointer.
+git -C "{{LOCAL_PATH}}" symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null \
+  | sed 's|^origin/||'
+
+# 2. Fallback — git config.
+git -C "{{LOCAL_PATH}}" config --get init.defaultBranch
+
+# 3. Fallback — check well-known names in branch list.
+git -C "{{LOCAL_PATH}}" branch --list main master dev develop trunk \
+  | head -1 | sed 's/^[* ]*//'
+```
+
+If none resolve, ask the user explicitly: "Couldn't auto-detect the base branch for `{{CODEBASE_NAME}}` — what is it (`main`, `master`, `dev`, `develop`, `trunk`, something else)?" Show the existing branch list to help them answer.
+
+Record the result as the codebase's **Base branch**. This is the branch agents must NEVER push to directly.
+
+#### 2b.4 — Determine the user's feature branch
+
+Ask the user: "What feature branch should agents target with PRs in `{{CODEBASE_NAME}}`?" Suggest a default of `<user-handle>/<project-slug>` if the user doesn't have a preference (e.g. `khalil/ar-graffiti-orchestration`).
+
+If the suggested branch doesn't exist on the remote, ask: "I'll create it from `{{BASE_BRANCH}}` so agents have a stable target. OK? (Y/n)" — on yes, run:
+
+```bash
+git -C "{{LOCAL_PATH}}" fetch origin
+git -C "{{LOCAL_PATH}}" checkout "{{BASE_BRANCH}}"
+git -C "{{LOCAL_PATH}}" pull --ff-only origin "{{BASE_BRANCH}}"
+git -C "{{LOCAL_PATH}}" checkout -b "{{USER_FEATURE_BRANCH}}"
+git -C "{{LOCAL_PATH}}" push -u origin "{{USER_FEATURE_BRANCH}}"
+```
+
+On no, the user is responsible for creating the branch themselves before any agent dispatches against this codebase. Note this as a follow-up in the codebase entry.
+
+#### 2b.5 — Scan technology inventory
+
+Walk the codebase and read manifest files to build a technology inventory. The order of preference (use the first set that produces signal):
+
+| Manifest | Read from | Extract |
+|---|---|---|
+| `package.json` | repo root and any nested `apps/*/package.json` / `packages/*/package.json` | `dependencies`, `devDependencies`, `engines.node`, `scripts` |
+| `package-lock.json` / `pnpm-lock.yaml` / `yarn.lock` | repo root | install dates per package (best-effort — see 2b.6) |
+| `pyproject.toml` | repo root | `[tool.poetry.dependencies]` / `[project.dependencies]` / `[tool.uv]` |
+| `Pipfile.lock` / `poetry.lock` / `uv.lock` | repo root | install dates per package |
+| `requirements*.txt` | repo root | line-by-line packages |
+| `Gemfile` / `Gemfile.lock` | repo root | gems and install dates |
+| `go.mod` / `go.sum` | repo root | modules and versions |
+| `Cargo.toml` / `Cargo.lock` | repo root | crates and versions |
+| `Dockerfile` / `docker-compose.yml` | repo root and `code/`, `infra/`, `.docker/` if present | base images, runtime services |
+| `tsconfig.json` | repo root | TypeScript presence |
+| `.terraform.lock.hcl` / `versions.tf` | `infra/`, `terraform/`, or repo root | Terraform providers |
+| `.github/workflows/*.yml` | repo | CI runners, action SHAs, what gets tested |
+
+Cross-reference each detected technology against `templates/docs/tech-docs-registry.md` (which you've already written into the user's `docs/tech-docs-registry.md` in Step 4). Build a structured inventory:
+
+```
+- Languages: TypeScript, Python
+- Frameworks: NestJS (web), FastAPI (data-pipelines/)
+- Build / test tooling: Vitest, esbuild, ruff, pytest
+- Infrastructure: Terraform 1.10, Docker, GitHub Actions
+- Other notable libraries: zod, pg, ioredis, jose, axios
+```
+
+For each technology with a registry entry, capture the **Doc URL** to inject into owning personas in Step 4.
+
+If a technology appears in the codebase but is **not** in the registry, surface it to the user with: "I detected `<tech>` but don't have a docs link on file. Want to add one to `docs/tech-docs-registry.md`?" — this is the registry-extension prompt. Don't block on it; proceed without the link if the user defers.
+
+#### 2b.6 — Detect feature-overlap candidates and ask about deprecation
+
+Cross-reference the detected libraries against `templates/docs/feature-overlap-registry.md` (which you've already written into the user's `docs/feature-overlap-registry.md` in Step 4). For each section in that registry where two or more listed libraries are present in this codebase, compute the **install-date gap**:
+
+- For npm: read `package-lock.json` `packages.<name>.resolved` and check the registry tarball's `time` field via `npm view <name> time` if the lockfile doesn't carry the date directly. For better signal, prefer `git log --diff-filter=A --follow -- package.json | tail -1` lookup at the lockfile commit that introduced each library.
+- For Python lockfiles (`poetry.lock`, `uv.lock`): each entry has a version; resolve install date via `pip index versions <name>` published-at, or via the lockfile's first-introduced commit.
+- For Go modules: `go mod why -m <module>` and `git log --diff-filter=A -- go.mod` for the introduction commit.
+
+If the gap between the **oldest** and **newest** library in an overlap set exceeds **365 days**, surface a deprecation question:
+
+```
+{{CODEBASE_NAME}}'s overlap detection:
+
+  In <category>, I found two libraries with significant feature overlap:
+    - <older-lib> (last touched <older-date>)
+    - <newer-lib> (introduced <newer-date>)
+
+  These typically don't coexist. Is <older-lib> deprecated in this
+  project — i.e. should new code use <newer-lib> exclusively?  (Y/n/skip)
+```
+
+On `Y`, record a deprecation note to add to the codebase's `pm/codebases.md` entry **and** to the relevant persona's Working patterns. The note format:
+
+> Use `<newer-lib>`; `<older-lib>` is deprecated in this project (since <date> per scaffold scan / user confirmation). Do not extend `<older-lib>`-using code; migrate to `<newer-lib>` opportunistically when touching adjacent files.
+
+On `n` or `skip`, record nothing — the libraries legitimately coexist or the user isn't sure yet. The scaffold can re-ask on the next run if the gap widens.
+
+#### 2b.7 — Decide whether the codebase warrants its own persona
+
+Use best judgement against the user's answer to Q13 and the inventory from 2b.5. Surface a *suggestion* to the user — don't auto-create.
+
+Heuristics for "yes, codebase warrants its own persona":
+
+- The user said "yes" to Q13 and named distinct skills / domain knowledge.
+- The codebase contains a niche framework that doesn't map to a standard persona (e.g. 8th Wall WebAR, Unity, Unreal, FPGA toolchain, embedded firmware).
+- The codebase is large enough (>500 LoC of non-vendored source) and self-contained that knowing only its surface is meaningfully different from knowing the rest of the project.
+
+Heuristics for "no, standard personas cover it":
+
+- The user said "no" to Q13.
+- The codebase is a standard Node / Python / Go service that fits cleanly under Backend Engineer or a similar standard persona.
+- The codebase is small (<500 LoC) or is a thin wrapper around external services.
+
+If yes, propose a custom persona via `custom-skeleton.md` in Step 3, with the role paragraph drafted from the niche-specific signal (e.g. "AR Engineer — owns 8th Wall SLAM integration and the 3D rendering pipeline; works in `<codebase-path>/`"). If no, the codebase is owned by an existing persona that you already proposed.
+
+Either way, every codebase has at least one **owning persona** recorded in its `pm/codebases.md` entry — so dispatch can resolve which persona to use at ticket time.
+
+#### 2b.8 — Aggregate
+
+After completing 2b.1 through 2b.7 for all codebases, you have:
+
+- A list of validated codebase paths + remote URLs + base branches + user feature branches.
+- A technology inventory per codebase with doc URLs ready to inject.
+- A list of confirmed deprecation notes per codebase.
+- A list of suggested codebase-specific personas (if any).
+
+Carry all of this into Step 3's synthesis. The synthesis proposal now includes the codebase entries the user will see plus any niche personas the codebase scans surfaced.
+
+### Step 3 — Synthesize a persona proposal, MCP shortlist, skill shortlist, and codebase plan; confirm with the user
+
+Do not generate files yet. Reason over the discovery answers (Step 2) and the codebase scans (Step 2b) and produce **four rolled-up proposals** in a single message. The user confirms or edits before any writes happen.
 
 #### 3a. Persona proposal (3–7 personas)
 
@@ -149,6 +316,8 @@ The **Project Manager** and **Engineering Manager** are common-but-not-universal
 
 If the user mentions a role that doesn't match any template — e.g. "Growth Lead", "Customer Success", "ML Researcher", "Data Engineer", "Security Engineer" — propose a `custom-skeleton.md`-based persona for it. Author the role paragraph + working patterns from the discovery answer rather than inventing them.
 
+If Step 2b's per-codebase scan suggested a niche persona (a codebase using a domain-specific framework that no standard persona covers), include that proposal here as well. Format: "AR Engineer — owns the 8th Wall SLAM integration and the 3D rendering pipeline in `<codebase-path>/`. Detected via the codebase scan; user confirmed in Q13 that AR work is distinct enough to warrant its own role."
+
 #### 3b. MCP integration shortlist
 
 For each proposed persona, cross-reference against the trusted-MCP catalog in `templates/integrations.md` and the user's answer to discovery question 9. Propose the integrations that match:
@@ -169,16 +338,43 @@ For each proposed persona, look at its template's `required_skills:` frontmatter
 - **Builtin** — already shipped with Claude Code; nothing to install.
 - **Private** — placeholder URL in registry; user must substitute the team-private URL.
 
-#### 3d. Confirmation
+#### 3d. Codebase plan summary
 
-After presenting 3a + 3b + 3c, ask the user one clear confirm-or-edit question:
+Summarize the codebase plan from Step 2b. For each codebase, show:
+
+- Local path
+- Detected base branch (or "manual entry from user" if 2b.3 fell through)
+- Proposed user's feature branch (or "user creates manually" if 2b.4's offer was declined)
+- Tech inventory bullets (one line each)
+- Deprecation candidates the user confirmed (if any)
+- Owning persona(s) — point at one or more entries from 3a
+
+Example:
+
+```
+Codebase: api-server
+  Path: /Users/khalil/Code/ar-graffiti-api
+  Base branch: main (auto-detected)
+  Your feature branch: khalil/ar-graffiti-api-orchestration
+    (will be created from main, pushed to origin)
+  Stack: TypeScript, NestJS, Postgres + PostGIS, ioredis
+  Deprecation: jsonwebtoken (added 2023-04) is deprecated in this project;
+               jose (added 2025-08) is the active library.
+  Owned by: Backend Engineer, Platform Engineer
+```
+
+If the user said "none yet" in Q12, omit this subsection — the project itself is the only codebase, and its base branch is the standard `main` covered in `CLAUDE.md`.
+
+#### 3e. Confirmation
+
+After presenting 3a + 3b + 3c + 3d, ask the user one clear confirm-or-edit question:
 
 ```
 Does this look right? Reply "ship it" to generate everything as listed, or
-tell me what to add / remove / rename.
+tell me what to add / remove / rename / update.
 ```
 
-Do not proceed until the user confirms or amends. If they edit the proposal, regenerate 3a–3c with their changes and re-confirm.
+Do not proceed until the user confirms or amends. If they edit the proposal, regenerate 3a–3d with their changes and re-confirm.
 
 ### Step 4 — Generate the universal subset and the *confirmed* personas
 
@@ -198,6 +394,9 @@ Files **always** written (the universal subset, not persona-dependent):
 | `templates/docs/README.md` | `<project>/docs/README.md` | `{{PROJECT_NAME}}` |
 | `templates/docs/adr/0000-template.md` | `<project>/docs/adr/0000-template.md` | none |
 | `templates/docs/skills-registry.md` | `<project>/docs/skills-registry.md` | none |
+| `templates/docs/tech-docs-registry.md` | `<project>/docs/tech-docs-registry.md` | none |
+| `templates/docs/feature-overlap-registry.md` | `<project>/docs/feature-overlap-registry.md` | none |
+| `templates/pm/codebases.md` | `<project>/pm/codebases.md` | per-codebase: `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{REMOTE_URL}}`, `{{BASE_BRANCH}}`, `{{USER_FEATURE_BRANCH}}`, `{{SCAN_DATE}}`, `{{LANGUAGES}}`, `{{FRAMEWORKS}}`, `{{BUILD_TOOLING}}`, `{{INFRASTRUCTURE}}`, `{{OTHER_LIBRARIES}}`, `{{OWNING_PERSONAS}}`, `{{DOC_LINKS}}`, `{{DEPRECATION_NOTES}}` (all from Step 2b's scan) |
 | `templates/docs/dispatch-logs/.gitkeep` | `<project>/docs/dispatch-logs/.gitkeep` | none |
 
 Persona files written **only if** they appeared in the confirmed list from Step 3a:
@@ -220,6 +419,16 @@ The MCP-integration files (`templates/mcp.example.json` → `.mcp.example.json`,
 
 After writing the personas, append a **Required skills** section to the bottom of `agents/README.md` (in the user's project) listing each (persona → skill) dependency in a small markdown table. This is the single readable summary a future contributor sees.
 
+#### Codebase ↔ persona linking
+
+For every codebase Step 2b scanned, edit each owning persona file (the personas listed in 3d as "Owned by") to:
+
+1. **Inject doc links into Key References.** Append the codebase's tech inventory doc URLs (from 2b.5) to the persona's Key References section — formatted as `- [<Tech name>](<doc-url>) — used in <codebase-name>`. Skip technologies the persona's owning surface clearly doesn't cover (e.g. don't inject Terraform docs into Frontend Engineer).
+2. **Inject deprecation notes into Working patterns.** For every confirmed deprecation note from 2b.6, append a working-pattern bullet of the form: "Use `<newer-lib>`; `<older-lib>` is deprecated in `<codebase-name>` (since `<date>`). Do not extend `<older-lib>`-using code; migrate when touching adjacent files." Place this in the persona whose surface the libraries cover (e.g. Backend Engineer for `jose` vs `jsonwebtoken`).
+3. **Add a Codebases section.** If the persona owns one or more codebases, add a new `## Codebases owned` section between Working patterns and Relationships, listing each codebase by name with a one-line scope description and a link to its `pm/codebases.md` entry.
+
+If the user declined to create a feature branch in 2b.4 for any codebase, add a follow-up note at the bottom of `pm/codebases.md` for that codebase: "**Pending user action:** create the user's feature branch (`{{USER_FEATURE_BRANCH}}`) from `{{BASE_BRANCH}}` and push to origin before any agent dispatch against this codebase."
+
 ### Step 5 — Project-specific rules
 
 The universal `CLAUDE.md` covers git workflow, branch naming, PR discipline, secrets safety. **Project-specific rules need user input** and are derived from the primary stack the user gave in Step 2 Q7.
@@ -237,6 +446,24 @@ Ask only the relevant questions in a single message, grouped:
 For each "yes", append a one-line rule to the `## Project-specific rules` section at the bottom of `CLAUDE.md`. Reference the file path or tool the rule applies to. Keep each rule to one or two sentences — these are merge-blockers, not essays.
 
 If the user is unsure about a question, default to "yes" — rules are easier to relax than to introduce later. Tell them they can edit `CLAUDE.md` to remove a rule any time.
+
+#### Multi-codebase rules (only if Step 2b scanned at least one codebase)
+
+If `pm/codebases.md` was generated, append the following to the bottom of `CLAUDE.md`'s `## Project-specific rules` (do not paraphrase — these are load-bearing for the multi-codebase PR discipline):
+
+```
+- When working in any codebase listed in `pm/codebases.md`, agents MUST
+  open PRs against that codebase's **User's feature branch**, NEVER
+  against its base branch. The base branch is read-only to agents; the
+  user merges from the feature branch to base via their own review
+  process.
+- Before dispatching a sub-agent on a ticket scoped to a referenced
+  codebase, the orchestrator must read the codebase's `pm/codebases.md`
+  entry and pass the local path, base branch, and user's feature branch
+  to the sub-agent.
+```
+
+These rules complement the existing "Rule: Working in *referenced* codebases" section in `CLAUDE.md`'s Git Workflow chapter (which the universal template already includes). The Project-specific rules entry serves as the merge-time merge-blocker; the Git Workflow section is the operational handbook.
 
 ### Step 6 — MCP integrations: confirm, edit `.mcp.example.json`, copy `.mcp.json`, coach OAuth
 
@@ -372,6 +599,11 @@ After all writes, installs, and memory entries complete, output a summary messag
 Personas generated:
   <list each persona file written, with the source template it came from>
 
+Codebases registered:
+  <for each codebase: name, local path, base branch, user's feature branch,
+   tech inventory summary, deprecation notes if any, owning personas>
+  (omit this section if no codebases were registered)
+
 Files written:
   <list every other path you wrote, with relative paths>
 
@@ -400,26 +632,32 @@ Memory bootstrapped:
    available immediately.
 4. Open pm/backlog.md and replace the placeholder M0 milestone with your real first
    milestone. Add your first epic.
-5. Commit the scaffolded files: git add . && git commit -m "scaffold: agent workflow"
+5. (If codebases were registered) Open pm/codebases.md and verify each entry — paths,
+   base branches, user feature branches, tech inventories, deprecation notes. Anything
+   the scaffold guessed wrong, edit. The owning personas have already been linked.
+6. Commit the scaffolded files: git add . && git commit -m "scaffold: agent workflow"
    Don't push yet — review the diff first.
-6. Once you've populated at least one epic and one ticket in pm/backlog.md, you can run
+7. Once you've populated at least one epic and one ticket in pm/backlog.md, you can run
    the orchestrator dispatch loop by invoking Claude with the orchestrator persona.
 
-To re-run this scaffold (e.g. after a project pivot or a new persona need), invoke
-this skill again — it will detect existing files and ask before overwriting, and will
-re-run the skill check so any newly-required skills get installed.
+To re-run this scaffold (e.g. after a project pivot, adding a new codebase, or a new
+persona need), invoke this skill again — it will detect existing files and ask before
+overwriting, will re-run Step 2b for any codebases (catching drift in tech inventory
+and new deprecation candidates), and will re-run the skill check so newly-required
+skills get installed.
 ```
 
 Stop. Do not proceed to do additional work unless the user asks.
 
 ## Working principles for this skill
 
-- **Discovery before generation.** Never write a persona file the user didn't confirm. Step 2 (interview) → Step 3 (synthesis + confirmation) → Step 4 (write only what's confirmed) is the load-bearing sequence; do not collapse it.
+- **Discovery before generation.** Never write a persona file the user didn't confirm. Step 2 (interview) → Step 2b (codebase setup) → Step 3 (synthesis + confirmation) → Step 4 (write only what's confirmed) is the load-bearing sequence; do not collapse it.
 - **Don't overwrite without asking.** This is the user's project — Step 1 detection is mandatory.
-- **Don't dump every file in a wall of writes.** Confirm the persona / MCP / skill plan in Step 3, then generate in Step 4 onwards. The user can interrupt.
-- **Don't add rules to CLAUDE.md that the user didn't agree to.** Step 5's questions matter — silent additions break trust.
-- **Active install, but consent-gated.** Step 7 actively `git clone`s skills the agent can install — but never without one explicit batched yes. Plugin installs (`/plugin install`) and OAuth flows are user-driven and the agent only coaches.
-- **Don't substitute placeholders blindly.** If the user said "none" for the GitHub repo, comment out the GitHub-specific lines in `orchestrator.md` rather than leaving "none/none" in there. Same for `custom-skeleton.md`'s `{{PERSONA_*}}` placeholders — fill them with the discovery answers, don't ship literal `{{}}` to disk.
+- **Don't push to a referenced codebase's base branch.** Ever. Step 2b records the user's feature branch as the only acceptable PR target for each codebase. The orchestrator persona and CLAUDE.md both restate this rule because it's load-bearing for safe multi-repo work.
+- **Don't dump every file in a wall of writes.** Confirm the persona / MCP / skill / codebase plan in Step 3, then generate in Step 4 onwards. The user can interrupt.
+- **Don't add rules to CLAUDE.md that the user didn't agree to.** Step 5's questions matter — silent additions break trust. The exception is the multi-codebase PR rules in Step 5: those are tied to the codebases the user already confirmed in Step 3, so they're not silent.
+- **Active install, but consent-gated.** Step 7 actively `git clone`s skills the agent can install — but never without one explicit batched yes. Plugin installs (`/plugin install`) and OAuth flows are user-driven and the agent only coaches. Step 2b's `git checkout -b` for the user's feature branch is the same shape — ask first, run second.
+- **Don't substitute placeholders blindly.** If the user said "none" for the GitHub repo, comment out the GitHub-specific lines in `orchestrator.md` rather than leaving "none/none" in there. Same for `custom-skeleton.md`'s `{{PERSONA_*}}` placeholders and `codebases.md`'s `{{LOCAL_PATH}}` etc. — fill them with the discovery answers, don't ship literal `{{}}` to disk.
 - **Read the templates fresh each invocation.** Templates may have been updated since the last time the skill was run; don't cache.
-- **A re-run revisits the discovery.** If the user re-invokes this skill on the same project — even one with existing personas — re-ask Step 2 briefly so the proposal can reflect changes (new role added, tool stack changed). Don't silently re-use prior answers without confirmation.
+- **A re-run revisits the discovery and the codebase scans.** If the user re-invokes this skill on the same project — even one with existing personas and codebases — re-ask Step 2 briefly and re-run Step 2b's scans against the registered codebase paths so the proposal reflects changes (new role added, tool stack changed, new lockfile, new deprecation candidate).
 - **Stop when done.** Don't proactively suggest follow-up work the user didn't ask for.

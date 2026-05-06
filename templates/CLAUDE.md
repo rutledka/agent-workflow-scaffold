@@ -37,6 +37,17 @@ This applies to **every agent** — including the primary Claude Code session, s
 
 8. **Do not merge your own PR.** Leave it open for review unless the user explicitly asks you to merge.
 
+### Rule: Working in *referenced* codebases (multi-repo work)
+
+The scaffolded project may reference one or more **external codebases** at paths on the user's machine — listed in [`pm/codebases.md`](./pm/codebases.md). These are codebases the user contributes to alongside other people. The same worktree-and-PR discipline applies, plus an additional rule:
+
+- **Never push to a referenced codebase's base branch.** The base branch (`main`, `master`, `dev`, `develop`, etc.) is recorded in `pm/codebases.md` and is **read-only** to agents. Other contributors merge to that branch via their own review process.
+- **PRs target the user's feature branch in that codebase.** Each codebase entry in `pm/codebases.md` records `User's feature branch` — the branch the user owns and uses to integrate agent work. Open PRs against that branch, not against the base branch. The user merges their feature branch to base themselves, after their own review.
+- **Worktrees still go inside the codebase.** When working in a referenced codebase at `<codebase-path>/`, create the worktree at `<codebase-path>/.worktrees/<branch-name>/`. Branch names follow the same `<agent-role>/<short-description>` pattern. The branch is created off the user's feature branch (not the base branch).
+- **`cd` into the codebase before starting work.** Agents dispatched on cross-codebase tickets must change directory into the codebase listed in `pm/codebases.md`, run `git fetch origin`, and confirm the user's feature branch is up to date before creating a worktree.
+
+This rule does **not** apply to the project where this `CLAUDE.md` lives — that one's git workflow uses `main` (or whatever the default branch is) as the PR target, per the previous section.
+
 ### Commit message style
 - Imperative mood: `add`, `fix`, `refactor`, `remove` — not `added`, `fixed`.
 - Reference epic/ticket IDs where applicable: `EPIC-03-T02: integrate login flow`.
@@ -60,16 +71,20 @@ This applies to **every agent** — including the primary Claude Code session, s
 
 ```
 agents/     — agent persona definitions (role-specific system prompts; not deployed code)
-docs/       — technical documents, ADRs, dispatch logs
-pm/         — product backlog, roadmap, management notes
+docs/       — technical documents, ADRs, dispatch logs, registries (skills, tech docs, feature overlap)
+pm/         — product backlog, roadmap, management notes, codebase registry
 ```
 
 ## Key Documents
 - `pm/backlog.md` — milestones, epics, tickets (source of truth for delivery)
 - `pm/management.md` — leadership-readable plan: scope, RACI, decision log, risk register
 - `pm/roadmap.md` — milestone roadmap
+- `pm/codebases.md` — external codebases this project's agents work on, with paths, base branches, user feature branches, tech inventory, and deprecation notes
 - `docs/adr/` — Architecture Decision Records (one file per decision)
 - `docs/dispatch-logs/` — orchestrator audit trail (`YYYY-MM-DD.md` per run)
+- `docs/skills-registry.md` — known Claude Code skills + install commands
+- `docs/tech-docs-registry.md` — library / framework → official docs URL map; consumed by the codebase scan
+- `docs/feature-overlap-registry.md` — pairs of libraries with significant feature overlap; consumed by the codebase scan to surface deprecation candidates
 
 ## Project-specific rules
 
