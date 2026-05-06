@@ -203,6 +203,22 @@ If your project was scaffolded against an older version of this skill, the layou
 
 You can also pick which fixes to apply (`migrate D1 D2 D3`), skip migration to layer new work onto the existing artifacts (`skip` — drift surfaced in the Step 9 summary so you don't lose it), or abort and resolve manually.
 
+### Existing CLAUDE.md content is preserved
+
+The scaffold also handles a third case the migration mode used to gloss over: a project where the user authored their own `CLAUDE.md` rules without ever running this scaffold. Step 4's **AGENTS.md merge** detects pre-existing user content (in either `CLAUDE.md` or `AGENTS.md`) and writes the new file as:
+
+```
+<scaffold's universal sections — Repository, Git Workflow, Project Structure, Key Documents>
+
+---
+
+## Existing project rules (preserved from CLAUDE.md)
+
+<the user's prior content, verbatim — no reformatting, no reordering>
+```
+
+The scaffold's universal sections come first because they're load-bearing for the workflow's git discipline; the user's existing rules are preserved under a clearly-marked heading. If the existing file already contains the scaffold's universal sections (a previously-rendered scaffold output, or a hand-port of it), the merge is skipped entirely — re-running the scaffold is idempotent.
+
 ---
 
 ## Customization

@@ -99,19 +99,21 @@ When the user invokes you, follow these steps in order. Do not skip any. The flo
 Read the current working directory. Determine:
 
 1. Is this a git repo already (`.git/` exists)? If not, recommend the user run `git init` first, but offer to scaffold anyway and remind them at the end.
-2. Does the project already have any of `AGENTS.md`, `agents/`, `pm/`, or `docs/dispatch-logs/`? If yes, this is either a **previously-scaffolded project** or a **legacy-scaffolded project** (one set up against an older version of this skill that's drifted from current conventions). Don't blindly overwrite — instead:
-   - Run **Step 1.5 — Detect drift** below to classify which kind of \"already scaffolded\" you're looking at.
+2. Does the project already have any of `CLAUDE.md`, `AGENTS.md`, `agents/`, `pm/`, or `docs/dispatch-logs/`? If yes, this is one of three states — a **previously-scaffolded project**, a **legacy-scaffolded project** (set up against an older version of this skill that's drifted from current conventions), or a **user-customized project** (the user has authored their own `CLAUDE.md` rules without ever running this scaffold). Don't blindly overwrite — instead:
+   - Run **Step 1.5 — Detect drift** below to classify which kind of "already has content" you're looking at.
    - Based on the drift report, ask the user how to proceed: **migrate** (apply the drift plan), **continue as discovery** (Step 2 interview, then layer onto existing artifacts), or **abort**.
+
+The user's authored content (anywhere in `CLAUDE.md` or `AGENTS.md`) is **preserved** through every path — see Step 4's AGENTS.md merge behavior. The scaffold's universal sections are added *additively* under a clear delimiter heading; user rules are never deleted, reformatted, or reordered.
 
 ### Step 1.5 — Detect drift (run when Step 1 found existing artifacts)
 
-Older scaffolded projects have a different artifact layout than the current scaffold's output — `CLAUDE.md` as a regular file (not a symlink to `AGENTS.md`), `.claude/skills/` as a real directory (not a symlink to `../skills/`), persona files without `required_skills:` frontmatter, missing `pm/codebases.md`, missing registry files. Bare Step 1 detection (\"does `agents/` exist?\") returns **yes** for both shapes and treats them identically — but they need different handling. A current-scaffold project just needs Step 2's discovery to layer new work; a legacy project needs a **migration plan** first.
+Older scaffolded projects have a different artifact layout than the current scaffold's output — `CLAUDE.md` as a regular file (not a symlink to `AGENTS.md`), `.claude/skills/` as a real directory (not a symlink to `../skills/`), persona files without `required_skills:` frontmatter, missing `pm/codebases.md`, missing registry files. **User-customized projects** (the user authored their own `CLAUDE.md` rules without ever running the scaffold) look identical to legacy projects from the outside — `CLAUDE.md` exists as a regular file. Bare Step 1 detection (\"does `agents/` exist?\") can't distinguish all three shapes — but they need different handling. A current-scaffold project just needs Step 2's discovery to layer new work; a legacy project needs a **migration plan** first; a user-customized project needs the same D1 treatment, with the user's existing `CLAUDE.md` content **preserved verbatim** through the rename and merge.
 
 Run these detectors **in order**, recording each as `current` (no drift) or `legacy` (needs migration). Idempotent — running on a fully-migrated project detects no drift and reports `current` everywhere.
 
 | # | Drift detector | Bash check | Migration action if `legacy` |
 |---|---|---|---|
-| D1 | `CLAUDE.md` is a regular file (not a symlink) | `[ -f CLAUDE.md ] && [ ! -L CLAUDE.md ]` | Rename `CLAUDE.md` → `AGENTS.md`; create symlink `CLAUDE.md → AGENTS.md`. Prepend the agents.md preamble to `AGENTS.md` if missing. |
+| D1 | `CLAUDE.md` is a regular file (not a symlink) | `[ -f CLAUDE.md ] && [ ! -L CLAUDE.md ]` | `git mv CLAUDE.md AGENTS.md` (the rename preserves the user's content **verbatim** + git history); create symlink `CLAUDE.md → AGENTS.md`. The agents.md preamble and the scaffold's universal sections are added later via the Step 4 AGENTS.md merge — D1 itself touches only the filename + symlink, so the user can review the rename as a clean diff. |
 | D2 | `.claude/skills/` is a real directory (not a symlink) | `[ -d .claude/skills ] && [ ! -L .claude/skills ]` | Move every subdir/file from `.claude/skills/` to `skills/` (using `git mv` so history follows), `rmdir .claude/skills`, create symlink `.claude/skills → ../skills`. Add `skills/README.md` if missing. |
 | D3 | `agents/*.md` files lack YAML frontmatter | `for f in agents/*.md; do head -1 "$f" \| grep -qE '^---$' \|\| echo "$f"; done` (any output → drift) | Prepend `---\nrequired_skills: []\n---\n\n` and the standard \"## Before starting work\" prelude to each persona that lacks frontmatter. Preserve all existing body content verbatim. |
 | D4 | Missing `pm/codebases.md` | `[ ! -f pm/codebases.md ]` | Author `pm/codebases.md` from `templates/pm/codebases.md`. If the user has external codebases, run Step 2b (interview Q12 only) to populate Variant A entries; otherwise produce one Variant B entry for the project itself with stack inferred from manifests at `code/*/`, `apps/*/`, etc. |
@@ -639,11 +641,53 @@ Do not proceed until the user confirms or amends. If they edit the proposal, reg
 
 Once the proposal is confirmed, write the files. **Personas are written from the confirmed list only** — the scaffold no longer defaults to writing all six.
 
+#### AGENTS.md merge — never overwrite the user's content
+
+The `AGENTS.md` write is the one entry in the universal subset that is **not a plain template render**. Before writing, the scaffold checks for pre-existing user content and merges instead of overwriting:
+
+1. **Detect pre-existing user content.** Run these checks in order:
+   - If `AGENTS.md` exists as a regular file (not a symlink): the user has prior content here — either from a Step 1.5 D1 rename earlier in this same run, from a previous scaffold run, or because the user authored their own. Read it into memory as `existing_content`.
+   - Else if `CLAUDE.md` exists as a regular file (not a symlink to `AGENTS.md`): the user picked `skip` in Step 1.5 (or D1 didn't run for some other reason) and their original CLAUDE.md is still in place. `git mv CLAUDE.md AGENTS.md` and read the result as `existing_content`.
+   - Else: there is no pre-existing user content. `existing_content` is empty.
+
+2. **Detect whether `existing_content` already contains the scaffold's universal sections.** Grep for the load-bearing anchors:
+   - `## Git Workflow — MANDATORY for all agents`
+   - `### Rule: Work in a worktree, ship via pull request`
+   - `### Rule: Working in *referenced* codebases (multi-repo work)`
+   - `### Rule: Dispatching sub-agents`
+   
+   If all four anchors are present, the file is a previously-rendered scaffold output (or a hand-port of it) — **do nothing**, leave it as is. Re-running the scaffold should be idempotent on this file.
+
+3. **Otherwise, merge.** Render `templates/AGENTS.md` with the standard substitutions to produce `scaffold_content`, then write `AGENTS.md` as:
+
+   ```
+   <scaffold_content rendered from templates/AGENTS.md>
+
+   ---
+
+   ## Existing project rules (preserved from CLAUDE.md)
+
+   <user's existing_content, verbatim — no reformatting, no reordering>
+   ```
+
+   The delimiter heading makes the source of each section unambiguous to a future reader. The scaffold's universal sections are first (load-bearing for git discipline); the user's prior rules are second under the preservation heading. Nothing the user wrote is deleted, reformatted, or reordered. Step 5's project-specific rules append below the preserved-content block.
+
+4. **If `existing_content` was empty**, just render `templates/AGENTS.md` straight to `<project>/AGENTS.md` (the original behavior for fresh projects).
+
+5. **Tell the user what merged**, in the Step 9 summary:
+   - "✓ AGENTS.md: scaffold's universal sections written; your existing CLAUDE.md content preserved verbatim under `## Existing project rules (preserved from CLAUDE.md)`"
+   - Or "✓ AGENTS.md: written fresh (no existing user content found)"
+   - Or "✓ AGENTS.md: already had the scaffold's universal sections; left untouched"
+
+The same merge logic applies even when Step 1.5 detected the project as `current` (no drift) — if a `CLAUDE.md` or `AGENTS.md` slipped in from another source (a manual hand-edit, a copy-paste from another project), the scaffold preserves it.
+
+#### Universal-subset files
+
 Files **always** written (the universal subset, not persona-dependent):
 
 | Source | Destination | Substitutions |
 |---|---|---|
-| `templates/AGENTS.md` | `<project>/AGENTS.md` | `{{PROJECT_NAME}}`, `{{REPO_OWNER_REPO}}`, `{{PRIMARY_STACK}}` |
+| `templates/AGENTS.md` | `<project>/AGENTS.md` *(merged with any pre-existing user content per the AGENTS.md merge rule above; never plain-overwrite)* | `{{PROJECT_NAME}}`, `{{REPO_OWNER_REPO}}`, `{{PRIMARY_STACK}}` |
 | `templates/.gitignore` | `<project>/.gitignore` *(or appended)* | none |
 | `templates/agents/README.md` | `<project>/agents/README.md` | `{{PROJECT_NAME}}` |
 | `templates/pm/backlog.md` *(only if Q9a chose "Files only" or a no-MCP fallback tool)* | `<project>/pm/backlog.md` | `{{PROJECT_NAME}}`, `{{FIRST_MILESTONE_NAME}}`, `{{FIRST_MILESTONE_TARGET}}`, `{{TODAY_ISO}}` |
@@ -1369,6 +1413,14 @@ Migration drift (from Step 1.5):
 Files written:
   <list every other path you wrote, with relative paths>
 
+AGENTS.md merge:
+  <one of:
+     "scaffold's universal sections written; your existing CLAUDE.md content
+      preserved verbatim under '## Existing project rules (preserved from CLAUDE.md)'"
+     "written fresh (no existing user content found)"
+     "already had the scaffold's universal sections; left untouched">
+  (always show this line — the merge behavior is load-bearing for trust)
+
 MCPs enabled:
   <list each MCP integration enabled in .mcp.example.json,
    note whether .mcp.json was copied,
@@ -1426,6 +1478,7 @@ Stop. Do not proceed to do additional work unless the user asks.
 - **Niche codebase knowledge goes in a project-local skill, not a separate persona.** Personas describe *roles* (what someone does); skills describe *technical knowledge* (how to do the thing). When Step 2b.7 surfaces a codebase with niche tech or team-specific gotchas, the output is a draft `skills/<codebase-slug>/SKILL.md` — not a `custom-skeleton.md` persona. The standard persona that owns the codebase loads the local skill before starting work.
 - **PM-tool conventions go in a project-local skill, not in `pm/backlog.md`.** When the user has Linear / Jira / Notion / GitHub as their PM source of truth (Q9a), the live ticket state is in the tool — not in a markdown file the scaffold has to keep up to date. Step 5b drafts a `pm-<tool>-<project-slug>` skill at `skills/` that wraps the tool's MCP with project-specific conventions (workspace, team / project, issue prefix, label groups). The skill auto-loads when any persona starts PM-adjacent work. `pm/backlog.md` becomes a thin pointer doc, not a live mirror.
 - **Don't overwrite without asking.** This is the user's project — Step 1 detection is mandatory.
+- **Never overwrite the user's CLAUDE.md / AGENTS.md content; merge.** When pre-existing user content is detected (a hand-authored `CLAUDE.md`, a previous scaffold's `AGENTS.md`, or anything in between), Step 4's AGENTS.md merge prepends the scaffold's universal sections **above** the user's content and preserves the user's content verbatim under `## Existing project rules (preserved from CLAUDE.md)`. Nothing gets reformatted, reordered, or deleted. The change is additive — exactly what the user requested when they invoked the scaffold on a project that already had rules.
 - **Don't push to a referenced codebase's base branch.** Ever. Step 2b records the user's feature branch as the only acceptable PR target for each codebase. The orchestrator persona and AGENTS.md both restate this rule because it's load-bearing for safe multi-repo work.
 - **Don't dump every file in a wall of writes.** Confirm the persona / MCP / skill / codebase plan in Step 3, then generate in Step 4 onwards. The user can interrupt.
 - **Don't add rules to AGENTS.md that the user didn't agree to.** Step 5's questions matter — silent additions break trust. The exception is the multi-codebase PR rules in Step 5: those are tied to the codebases the user already confirmed in Step 3, so they're not silent.
