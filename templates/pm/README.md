@@ -9,6 +9,7 @@ This directory holds the project's **product-management artifacts**. Three docum
 | `backlog.md` | Engineering team + PM | Source of truth for delivery — milestones, epics, tickets, sizes, dependencies. The orchestrator reads this to decide what each agent works on next. |
 | `management.md` | Leadership / stakeholders | Leadership-readable plan — scope, timeline, RACI, decision log, risk register, sign-offs. Updated weekly. |
 | `roadmap.md` | External stakeholders, investors, partners | What's being built and when, in user-facing terms. No ticket detail. |
+| `codebases.md` | Engineering team + agents | External codebases this project's agents work on. One section per codebase: local path, base branch, **user's feature branch (PR target)**, tech inventory (auto-scanned), deprecation notes, owning personas. Only present if the project references at least one external codebase. |
 
 ## How they relate
 

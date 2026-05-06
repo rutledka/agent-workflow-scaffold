@@ -60,21 +60,33 @@ Empty `required_skills: []` is the default. If the persona doesn't need a skill,
 
 ## Personas this project ships with
 
-*(edit this list as you add or remove personas)*
+*(this list is generated from the discovery interview at scaffold time — only the personas you confirmed appear here; edit the list as you add or remove roles later)*
 
-- `orchestrator.md` — runnable dispatch loop; the keystone.
-- `project-manager.md` — backlog, roadmap, scope owner.
+The scaffold's eleven off-the-shelf templates:
+
+- `orchestrator.md` — runnable dispatch loop; the keystone of the workflow.
+- `project-manager.md` — backlog, roadmap, scope owner, stakeholder comms.
 - `engineering-manager.md` — milestone exit, risk register, architecture tie-breaker.
-- `backend-engineer.md` *(if applicable)* — server-side code, API contract, schema.
-- `frontend-engineer.md` *(if applicable)* — client-side code, UX, accessibility, perf.
-- `qa-engineer.md` *(if applicable)* — test strategy, regression nets, CI infrastructure.
+- `backend-engineer.md` — server-side code, API contract, schema.
+- `frontend-engineer.md` — client-side code, UX surface, accessibility, perf.
+- `qa-engineer.md` — test strategy, regression nets, CI infrastructure.
+- `platform-engineer.md` — IaC, cloud, CI/CD pipelines, on-call, cost.
+- `product-designer.md` — design system, UX flows, accessibility, Figma + Code Connect.
+- `legal-advisor.md` — T&C, privacy policy, IP, regulatory compliance, launch sign-off.
+- `pilot-lead.md` — partner recruiting, launch operations, pilot go/no-go.
+- `custom-skeleton.md` — generic template the scaffold fills in for any role not covered above.
 
-## Personas you might add later
+## Adding a new persona later
 
-- **Platform Engineer / Cloud Architect** — infrastructure-as-code, cloud provider, deployment pipeline.
-- **Product Designer** — design system, UX flows, visual fidelity, accessibility.
-- **Security Engineer** — pen-test coordination, threat modeling, auth/authz reviews.
-- **Legal Advisor** — terms of service, privacy policy, IP, compliance.
-- **Pilot Lead / Launch Lead** — go-to-market operations, partner agreements, launch readiness.
+1. Copy any persona file in this directory or `custom-skeleton.md`, edit role + working patterns.
+2. Add the role to the **Agent role map** in `orchestrator.md`.
+3. Add any owned epics/documents to `pm/backlog.md` and `pm/management.md` RACI section.
+4. If the new persona depends on Claude Code skills, list them in the `required_skills:` frontmatter — see below.
 
-When in doubt, **start with fewer personas**. A persona that nobody reads creates noise. Add a persona when you find yourself repeatedly explaining the same scope to a generic agent — that's the signal that the role wants its own file.
+When in doubt, **start with fewer personas**. A persona that nobody reads creates noise. Add a persona when you find yourself repeatedly explaining the same scope to a generic agent — that's the signal that the role wants its own file. Re-running `/agent-workflow-scaffold` revisits the discovery and proposes additions/removals without re-asking what hasn't changed.
+
+## Personas vs. project-local skills
+
+A common pitfall is creating a new persona for niche codebase knowledge — "AR Engineer" for an 8th Wall codebase, "FPGA Engineer" for a hardware codebase, etc. Don't do this. Personas describe **roles** (what someone does); the niche knowledge is **technical context** (how to do the thing in this specific codebase). Technical context belongs in a project-local Claude Code skill at `.claude/skills/<codebase-slug>/SKILL.md`.
+
+The scaffold's Step 2b.7 makes this distinction automatically: when it surfaces niche tech or team-specific gotchas during a codebase scan, it drafts a project-local skill instead of suggesting a custom persona. Every persona's **Before starting work** section instructs it to check `.claude/skills/` and load any matching skill before doing the work — the standard persona + the local skill is the right shape.

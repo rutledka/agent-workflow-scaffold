@@ -64,19 +64,25 @@ Once installed, invoke the skill from inside the project you want to scaffold:
 /agent-workflow-scaffold
 ```
 
-The skill will:
+The skill is **discovery-driven**. It does not generate a fixed set of personas by default — instead it interviews you about your role and work, then proposes a tailored persona set you confirm before any files are written.
 
-1. Detect whether the project already has any of the artifacts it would create (`CLAUDE.md`, `agents/`, `pm/`, `docs/dispatch-logs/`). If so, it asks before overwriting.
-2. Ask four scoping questions: project name, project slug, GitHub repo, primary stack.
-3. Ask whether to include the optional Backend / Frontend / QA personas (defaults to all three).
-4. Generate the universal-subset files: `CLAUDE.md`, `agents/orchestrator.md` + chosen personas, `pm/backlog.md`, `pm/management.md`, `pm/roadmap.md`, `docs/README.md`, `docs/adr/0000-template.md`, `docs/dispatch-logs/.gitkeep`, `.gitignore`.
-5. Ask follow-up questions specific to your stack (Zod / typecheck / migration policy / API spec / etc.) and add the answers to a "Project-specific rules" section in `CLAUDE.md`.
-6. Ask which **trusted MCP integrations** the team uses (Linear, Atlassian, Notion, Slack, GitHub, Figma). For each yes, marks the entry `_enabled: true` in a generated `.mcp.example.json`, copies `docs/integrations.md` into the project, and notes the integration in `agents/orchestrator.md`. The list is restricted to vendor-published, OAuth-secured MCPs — see [`docs/integrations.md`](./docs/integrations.md) for the trust criteria.
-7. **Check persona skill prerequisites.** Each persona declares its required Claude Code skills via a `required_skills:` YAML frontmatter list. The scaffold reads those, cross-references [`docs/skills-registry.md`](./templates/docs/skills-registry.md) (which gets copied into your project), and prompts to install anything missing — both during the first scaffold run and on every re-run. The standard six personas declare no skills; this only kicks in once you customize a persona to depend on one (e.g. a Product Designer persona that needs `figma:figma-use`).
-8. Bootstrap five starter memory entries about the workflow's conventions (worktree+PR discipline, worktrees-not-siblings, document version+history, decisions-via-ADR, prefer-concrete-comparisons).
-9. Print a summary of what was written and the recommended next steps.
+1. **Detect** whether the project already has any of the artifacts it would create (`CLAUDE.md`, `agents/`, `pm/`, `docs/dispatch-logs/`). If so, it asks before overwriting.
+2. **Discovery interview** — one message of 13 questions covering: your role + decisions you own, daily work + recent task examples + recurring pain points, project name + slug + GitHub repo + primary stack, collaborators, active tools, specialty workflows, first milestone, **and the codebases you work in (single / multiple / monorepo, with paths, plus any tech distinct enough to warrant its own persona)**. You skip whatever doesn't apply.
+3. **Codebase setup (Step 2b)** — for each codebase you listed, the scaffold verifies the path, confirms it's a git repo, **auto-detects the base branch** (`main` / `master` / `dev` / `develop`), establishes the **user's feature branch** as the agent PR target (creates it on consent so agents never push to base directly), and **scans the codebase for technology inventory** by reading `package.json` / `pyproject.toml` / `Gemfile` / `go.mod` / `Cargo.toml` / lock files / Dockerfiles / Terraform / GitHub workflows. Cross-references against `docs/feature-overlap-registry.md` to find pairs of libraries with significant overlap, computes install-date gaps, and **asks about deprecation** when the gap exceeds a year.
+4. **Synthesize a proposal** — based on the discovery answers + codebase scans, propose 3–7 personas tailored to your work (citing the discovery answer that triggered each), plus a shortlist of trusted MCP integrations, Claude Code skills, and a per-codebase plan (paths, base branches, feature branches, tech inventories, deprecation notes, owning personas, drafted project-local skills). You confirm or edit before any writes happen. Off-the-shelf templates exist for Backend / Frontend / QA / Platform / Designer / Legal / Pilot Lead / Project Manager / Engineering Manager / Orchestrator; off-list **roles** (e.g. Growth Lead, ML Researcher) get authored from a `custom-skeleton.md`. **Niche codebase knowledge** does *not* become a custom persona — it goes into a project-local skill at `.claude/skills/<codebase-slug>/SKILL.md` that the standard owning persona loads before starting work. Personas describe roles; skills describe technical knowledge.
+4. **Generate the universal subset and confirmed personas** — only what you agreed to. A solo founder might end up with 3 personas; a 12-person team might end up with 11.
+5. **Generate the universal subset and confirmed personas** — only what you agreed to. A solo founder might end up with 3 personas; a 12-person team might end up with 11. Each persona owning a registered codebase has the codebase's tech-doc URLs auto-injected into its Key References section and the codebase's confirmed deprecation notes auto-injected into its Working patterns section.
+6. **Project-specific rules** — stack-specific follow-ups (Zod / typecheck / migration policy / API spec / etc.) appended to `CLAUDE.md`'s "Project-specific rules" section. **Plus the multi-codebase PR rule** when at least one external codebase was registered: agents target the user's feature branch, never the codebase's base branch.
+7. **MCP integrations** — for each confirmed integration, flips `_enabled: true` in `.mcp.example.json`, optionally copies it to `.mcp.json` (gitignored) on consent, copies `docs/integrations.md` into the project, and notes the integration in `agents/orchestrator.md`. OAuth happens on first use of each MCP. The list is restricted to vendor-published, OAuth-secured MCPs — see [`templates/integrations.md`](./templates/integrations.md) for the trust criteria.
+8. **Skills — install or coach** — reads each generated persona's `required_skills:` frontmatter, cross-references [`templates/docs/skills-registry.md`](./templates/docs/skills-registry.md), and acts:
+   - **Git skills** → `git clone` into `~/.claude/skills/` or `.claude/skills/` (single batched consent prompt).
+   - **Plugin skills** → coach you through `/plugin install <plugin>` from inside Claude Code (slash commands aren't safely scriptable).
+   - **Built-in skills** → already installed; nothing to do.
+   - **Private skills** → print the placeholder install URL and tell you to substitute the team's URL.
+9. **Bootstrap memory** — six starter entries: workflow conventions (worktree+PR discipline, worktrees-not-siblings, document version+history, decisions-via-ADR, prefer-concrete-comparisons) plus a `user-role-profile.md` derived from your discovery answers, so future scaffold runs (in other projects) can suggest personas faster.
+10. **Print a summary** — personas generated, codebases registered, files written, MCPs enabled, skills installed / pending / coaching-needed, and next steps.
 
-Re-running the skill on the same project re-detects existing files and asks before overwriting — so it's safe to run again after a major project pivot.
+Re-running the skill on the same project re-detects existing files, **re-runs the codebase scans** (catching new lockfile entries and new deprecation candidates), and asks before overwriting — so it's safe to run again after a major project pivot or after adding a new codebase.
 
 ---
 
@@ -99,14 +105,41 @@ Re-running the skill on the same project re-detects existing files and asks befo
 │   ├── management.md                  # exec summary / RACI / decision log / risk register
 │   ├── roadmap.md
 │   └── README.md
+├── pm/
+│   ├── backlog.md                     # milestones / epics / tickets
+│   ├── management.md                  # exec summary / RACI / decision log / risk register
+│   ├── roadmap.md
+│   ├── codebases.md                   # if any external codebase was registered
+│   └── README.md
 └── docs/
-    ├── README.md
-    ├── integrations.md                # if any MCP integration was enabled
-    ├── skills-registry.md             # known Claude Code skills + install commands
-    ├── adr/
-    │   └── 0000-template.md
-    └── dispatch-logs/
-        └── .gitkeep
+│   ├── README.md
+│   ├── integrations.md                # if any MCP integration was enabled
+│   ├── skills-registry.md             # known Claude Code skills + install commands
+│   ├── tech-docs-registry.md          # library / framework → official docs URL
+│   ├── feature-overlap-registry.md    # overlapping libs → deprecation candidates
+│   ├── adr/
+│   │   └── 0000-template.md
+│   └── dispatch-logs/
+│       └── .gitkeep
+└── .claude/
+    └── skills/                        # project-local Claude Code skills
+        ├── README.md
+        └── <codebase-slug>/           # if any codebase warranted a local skill
+            └── SKILL.md
+
+# `agents/` only contains the personas the discovery interview produced —
+# typically 3–7 of the eleven off-the-shelf templates plus any custom roles.
+# Solo projects may have only 3; team projects may have all 11.
+#
+# `pm/codebases.md` is only present if the discovery interview registered
+# at least one external codebase. The file is the source of truth for
+# multi-repo work — paths, base branches, the user's feature branches
+# (PR targets), tech inventories, deprecation notes.
+#
+# `.claude/skills/<codebase-slug>/` is only present if Step 2b.7 surfaced
+# niche knowledge for that codebase. Personas check `.claude/skills/`
+# before starting work and load any matching skill — niche codebase
+# knowledge lives here instead of becoming a separate persona.
 
 # plus, at the repo root, if any integration was enabled:
 .mcp.example.json                      # example MCP server config (committed)
