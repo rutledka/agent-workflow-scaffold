@@ -1,6 +1,10 @@
 # {{PROJECT_NAME}} — Agent Guidelines
 
-> **About this file.** `AGENTS.md` is the canonical, vendor-neutral home for agent instructions in this project — following the [agents.md](https://agents.md) convention. `AGENTS.md` (Claude Code's expected filename) is a symlink to this file. If you adopt other AI coding tools later (Cursor, Cline, Aider, codename-Y), point their convention at this same file rather than maintaining parallel copies.
+> **About this file.** `AGENTS.md` is the canonical, vendor-neutral home for agent instructions in this project — following the [agents.md](https://agents.md) convention. `CLAUDE.md` (Claude Code's expected filename) is a symlink to this file. If you adopt other AI coding tools later (Cursor, Cline, Aider, codename-Y), point their convention at this same file rather than maintaining parallel copies.
+>
+> **Cross-tool support today.** OpenCode, Cline, Cursor (recent versions), Continue, and GitHub Copilot all read `AGENTS.md` natively. Aider does not auto-discover — the scaffold's Step 4a adds `read: AGENTS.md` to `.aider.conf.yml` if Aider was selected. GitHub Copilot's repo-wide instructions also expect `.github/copilot-instructions.md` — Step 4a creates that as a symlink to this file.
+>
+> **For project-local skills**, see `skills/README.md` "Cross-tool conventions" — different tools have different shapes (OpenCode's `.opencode/agents/<name>.md` is full subagents; Cursor's `.cursor/rules/*.mdc` has its own frontmatter; Copilot's `.github/instructions/*.instructions.md` is path-targeted). The canonical content lives at `skills/<name>/SKILL.md`; per-tool wiring is documented but not auto-translated.
 
 ## Repository
 - Remote: `git@github.com:{{REPO_OWNER_REPO}}.git`

@@ -166,6 +166,20 @@ About your codebases:
     AR/SLAM rendering pipelines, FPGA toolchains, ML training
     infrastructure, embedded firmware, regulatory-specific code.
     "No, the standard personas cover it" is a fine answer.
+
+About your AI coding tools:
+14) Which AI coding tools does the team use? (Pick all that apply;
+    determines which per-tool symlinks/configs Step 4a creates so
+    AGENTS.md and skills/ are findable by every tool without
+    parallel files.)
+      - Claude Code              (always wired by default)
+      - OpenCode
+      - GitHub Copilot
+      - Cline
+      - Cursor
+      - Aider
+      - Continue
+      - Other (specify; scaffold will document but not auto-wire)
 ```
 
 Wait for answers before doing anything else. If the user gives a partial answer — e.g. only items 1, 3, 6, 7, 12 — that's fine; proceed with what you have and infer rather than re-asking.
@@ -496,28 +510,64 @@ The MCP-integration files (`templates/mcp.example.json` → `.mcp.example.json`,
 
 After writing the personas, append a **Required skills** section to the bottom of `agents/README.md` (in the user's project) listing each (persona → skill) dependency in a small markdown table. This is the single readable summary a future contributor sees.
 
-#### Step 4a — Create platform-compatibility symlinks
+#### Step 4a — Create platform-compatibility symlinks and configs
 
-Two symlinks make the project's vendor-neutral file layout discoverable by Claude Code's expected paths. **Always create both** — they're cheap, idempotent (only created if absent), and let other AI coding tools point at the same source files later without parallel copies.
+Make the project's vendor-neutral file layout discoverable by every AI coding tool the team uses (Q14). All actions below are **idempotent** — they only create files when absent, never clobber existing setup. If a real file or different setup already exists at any of these paths, surface the conflict to the user and skip that step.
+
+##### 4a.1 — Always create (Claude Code support)
+
+These two symlinks ship by default regardless of Q14, because Claude Code is the scaffold's home base:
 
 ```bash
-# 1. CLAUDE.md → AGENTS.md
-#    AGENTS.md is the canonical, vendor-neutral filename (agents.md convention).
-#    Claude Code looks for CLAUDE.md; the symlink lets it find AGENTS.md.
+# CLAUDE.md → AGENTS.md
 [ -e CLAUDE.md ] || ln -s AGENTS.md CLAUDE.md
 
-# 2. .claude/skills → ../skills
-#    Project-local skills live at <project>/skills/ (vendor-neutral path).
-#    Claude Code's skill loader reads .claude/skills/; the symlink redirects.
+# .claude/skills → ../skills
 mkdir -p .claude
 [ -e .claude/skills ] || ln -s ../skills .claude/skills
 ```
 
-**Why both files use `[ -e ... ] || ln -s ...`:** if a contributor or a different tool already created a real file at `CLAUDE.md` or a different `.claude/skills` setup, the scaffold should not clobber it. Surface the conflict to the user instead.
+##### 4a.2 — Per-tool actions (run once per tool the user picked in Q14)
 
-**Cross-platform note:** symlinks work natively on macOS and Linux. On Windows, git's `core.symlinks` config must be enabled (true by default since Git 2.10 with developer mode, but verify) — otherwise the symlink lands as a regular text file containing the target path. If the user is on Windows, mention this in the Step 9 summary and link to <https://git-scm.com/docs/git-config#Documentation/git-config.txt-coresymlinks>.
+The following table maps each tool to the action the scaffold takes. Most modern AI coding tools support `AGENTS.md` natively, so the action is "no-op + verify"; some need a symlink to a tool-specific filename or a small config entry.
 
-**Why this matters:** when the user adopts another AI coding tool later — Cursor, Cline, Aider, or whatever ships next — they point that tool's expected filename at `AGENTS.md` (and skills directory at `skills/`) rather than maintaining parallel copies. The vendor-neutral path is the source; symlinks are the per-tool aliases.
+| Tool | AGENTS.md native? | Action |
+|------|-------------------|--------|
+| **OpenCode** | ✅ YES — canonical filename | No symlink. Tell the user: "OpenCode reads AGENTS.md natively; commit it to git so the team shares the rules. OpenCode also supports project-local agents at `.opencode/agents/<name>.md` if you want full subagent definitions with permissions/mode/model — different concept from Claude Code's `skills/`. See `skills/README.md` for the cross-tool table." |
+| **GitHub Copilot** | ✅ YES — proximity-based precedence | Create symlink `.github/copilot-instructions.md → ../AGENTS.md` so Copilot's repo-wide instructions resolve to the canonical source. Path-specific instructions (`.github/instructions/*.instructions.md` with `applyTo` glob frontmatter) are a different concept; document but don't auto-create. |
+| **Cline** | ✅ YES | No symlink. Tell the user: "Cline reads AGENTS.md natively. Project-local Cline rules live at `.clinerules/` (directory of `.md`/`.txt` files) — different concept from `skills/`; create those manually if you want them." |
+| **Cursor** | ✅ YES — recent versions | No symlink. Tell the user: "Modern Cursor reads AGENTS.md natively. Project rules in `.cursor/rules/*.mdc` use a different format (frontmatter with `globs` + `alwaysApply`) — different concept from `skills/`; create those manually if you want them." Verify Cursor version supports AGENTS.md (older versions used `.cursorrules`). |
+| **Aider** | ❌ NO auto-discovery | Aider doesn't auto-scan; it only reads files explicitly loaded via `/read` or `.aider.conf.yml`. Create `.aider.conf.yml` (or append if it exists) with `read: AGENTS.md`. Sample: |
+| **Continue** | ✅ YES (recent versions) | No symlink. Tell the user: "Recent Continue reads AGENTS.md natively. Custom slash-commands live in `.continue/config.json`; rules in `.continue/rules/*.md` if you use that feature." |
+
+For Aider, the config snippet to write/append:
+
+```yaml
+# .aider.conf.yml — auto-loaded by Aider sessions in this project
+read: AGENTS.md
+```
+
+If `.aider.conf.yml` already exists, append the `read:` entry to it (handle both YAML-list and YAML-scalar shapes correctly — if `read:` already lists files, add `AGENTS.md` to that list rather than duplicating the key).
+
+For GitHub Copilot, the symlink:
+
+```bash
+mkdir -p .github
+[ -e .github/copilot-instructions.md ] || ln -s ../AGENTS.md .github/copilot-instructions.md
+```
+
+##### 4a.3 — Cross-platform note
+
+Symlinks work natively on macOS and Linux. On Windows, git's `core.symlinks` config must be enabled (true by default since Git 2.10 with developer mode, but verify) — otherwise the symlink lands as a regular text file containing the target path. If the user is on Windows, flag this in the Step 9 summary and link to <https://git-scm.com/docs/git-config#Documentation/git-config.txt-coresymlinks>.
+
+##### 4a.4 — Surface what was wired
+
+After running the per-tool actions, capture the result for the Step 9 summary:
+
+- Which symlinks/configs were created (and their canonical targets).
+- Which tools were "no-op + verify" (and the version users should ensure they're on).
+- Any conflicts where a real file already existed and the scaffold skipped — list these so the user can resolve manually.
+- For each tool whose project-local "skills" equivalent has a *different* concept than `skills/<name>/SKILL.md` (Cursor's rules, Cline's rules, OpenCode's agents, Copilot's instructions), one-line note pointing at `skills/README.md`'s cross-tool table for the manual conversion.
 
 #### Codebase ↔ persona linking
 
@@ -1010,6 +1060,21 @@ Project-local skills drafted:
   <list the PM skill at skills/pm-<tool>-<project-slug>/SKILL.md
    if Step 5b ran>
   (omit this section if neither Step 2b.7 nor Step 5b drafted any)
+
+AI tool wiring (from Step 4a):
+  Claude Code:          ✓ CLAUDE.md → AGENTS.md, .claude/skills → ../skills
+  <other tools per Q14, one line each, e.g.:>
+  GitHub Copilot:       ✓ .github/copilot-instructions.md → ../AGENTS.md
+  OpenCode:             native AGENTS.md (verify version >= 0.X)
+  Aider:                .aider.conf.yml → read: AGENTS.md
+  Cline:                native AGENTS.md (verify recent version)
+  Cursor:               native AGENTS.md (verify Cursor 1.6+)
+  <For tools whose project-local skill format differs from skills/<name>/SKILL.md
+   (Cursor's .mdc, Copilot's .instructions.md, OpenCode's .opencode/agents/),
+   one line: "see `skills/README.md` Cross-tool conventions table for
+   manual wiring".>
+  <Conflicts: list any path where a real file already existed and Step 4a
+   skipped — user resolves manually>
 
 PM source of truth:
   <one of:

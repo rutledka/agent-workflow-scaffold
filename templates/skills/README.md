@@ -1,6 +1,10 @@
 # Project-local skills (`skills/`)
 
-This directory holds **project-scoped Claude Code skills** — skills that are committed to the repo and become available to any contributor running Claude Code inside this project. They complement, not replace, user-scoped skills (in `~/.claude/skills/`) and Claude Code plugin skills (installed via `/plugin install`).
+This directory holds **project-scoped, vendor-neutral skills** — knowledge committed to the repo and shared across the team. The directory path is intentionally not named `.claude/skills/` so the content is portable to other AI coding tools; Claude Code reads it via a `.claude/skills → ../skills` symlink the scaffold sets up in Step 4a.
+
+The format inside each `<name>/SKILL.md` follows Claude Code's skill convention (YAML frontmatter with `name` + `description`, free-form markdown body). That format is the most-developed convention for this kind of content; other AI tools have their own equivalents (see "Cross-tool conventions" below) but they don't have to be duplicates — most users keep `skills/<name>/SKILL.md` as the canonical source and use per-tool aliases or refs as needed.
+
+Project-local skills complement, not replace, user-scoped skills (in `~/.claude/skills/`) and Claude Code plugin skills (installed via `/plugin install`).
 
 Use a project-local skill when the knowledge:
 
@@ -55,3 +59,21 @@ The scaffold's `templates/skills/codebase-skill-template/SKILL.md` is the canoni
 ## Updating after a codebase scan re-run
 
 Re-running `/agent-workflow-scaffold` on a project with existing local skills **will not overwrite them**. The re-run's Step 2b detects existing entries in `skills/` and surfaces a "drift detected — review?" prompt rather than clobbering. If you want a fresh scan-derived draft for a codebase whose skill has gotten stale, delete the codebase's subdirectory and re-run; the scaffold will produce a fresh starting point you can re-edit.
+
+## Cross-tool conventions
+
+Different AI coding tools have different conventions for project-local skills, rules, or instructions. The scaffold targets `skills/<name>/SKILL.md` because Claude Code's format is the most-developed; the table below documents how each tool finds project-local content for the team's adopted set (Q14 in the discovery interview).
+
+| Tool | Reads `AGENTS.md` natively? | Project-local equivalent of `skills/` | How to wire (manual; not auto-created by Step 4a) |
+|------|-----------------------------|---------------------------------------|---------------------------------------------------|
+| **Claude Code** | No — uses `CLAUDE.md` (symlinked to `AGENTS.md`) | `skills/<name>/SKILL.md` (canonical) — found via `.claude/skills → ../skills` symlink (auto-created) | Already wired by Step 4a |
+| **OpenCode** | ✅ Yes | `.opencode/agents/<name>.md` — full subagent definitions with frontmatter (`description`, `mode`, `permission`, `model`, `temperature`). Different concept from `skills/`. | Manually create `.opencode/agents/<name>.md` files where the OpenCode subagent shape is needed; reference `skills/<name>/SKILL.md` from the agent's body if content overlaps |
+| **GitHub Copilot** | ✅ Yes (proximity-based precedence in repo tree) | `.github/instructions/<name>.instructions.md` — frontmatter with `applyTo` glob; different concept (path-targeted instructions, not full skills) | Step 4a creates `.github/copilot-instructions.md → ../AGENTS.md` for repo-wide. For path-specific, manually author `.github/instructions/*.instructions.md` files |
+| **Cline** | ✅ Yes | `.clinerules/` directory of `.md` / `.txt` files (concatenated into instructions) | Manually create `.clinerules/from-skills.md` that references or mirrors content from `skills/`, OR symlink individual files |
+| **Cursor** | ✅ Yes (recent versions) | `.cursor/rules/<name>.mdc` — frontmatter with `description`, `globs`, `alwaysApply`. Different concept. | Manually author `.cursor/rules/*.mdc` files; Cursor's frontmatter shape isn't directly compatible with `SKILL.md` |
+| **Aider** | ❌ No auto-discovery | None — Aider only loads files explicitly listed in `.aider.conf.yml` `read:` or `/read` command | Step 4a appends `read: AGENTS.md` to `.aider.conf.yml`. For per-skill content, append more entries to the `read:` list pointing at `skills/<name>/SKILL.md` |
+| **Continue** | ✅ Yes (recent versions) | `.continue/rules/<name>.md` (newer rules feature) and `.continue/config.json` for slash-commands | Manually author rule files where Continue-specific behavior is needed |
+
+**Summary:** the canonical content for project-local skills lives at `skills/<name>/SKILL.md`. Most modern tools find AGENTS.md natively, so general instructions are shared automatically. For tool-specific *skill formats* (Cursor's `.mdc`, Copilot's `.instructions.md`, OpenCode's full agents), the scaffold doesn't try to auto-translate — the formats are different enough that translation can lose nuance. Where you need them, author them manually and reference the canonical `skills/<name>/SKILL.md` from the body.
+
+If a tool you use isn't in the table, file a follow-up to add a row. The conventions are evolving; the table is updated when new tools adopt AGENTS.md or change their rule format.
