@@ -120,6 +120,8 @@ Run these detectors **in order**, recording each as `current` (no drift) or `leg
 | D7 | Missing `docs/feature-overlap-registry.md` | `[ ! -f docs/feature-overlap-registry.md ]` | Copy from `templates/docs/feature-overlap-registry.md`. |
 | D8 | Missing AGENTS.md \"Rule: Dispatching sub-agents\" section | `! grep -q 'Rule: Dispatching sub-agents' AGENTS.md 2>/dev/null` (after D1 if applicable) | Insert the standard sub-agent-dispatch section in `AGENTS.md` after the referenced-codebases rule. |
 | D9 | Missing `templates/memory/feedback-subagent-write-permissions.md`-equivalent in user memory | check whether `feedback-subagent-write-permissions.md` is in the user's memory dir for this project | Seed the memory file (Step 8 mechanism). |
+| D10 | Missing `docs/subagents-registry.md` | `[ ! -f docs/subagents-registry.md ]` | Copy from `templates/docs/subagents-registry.md`. |
+| D11 | `agents/*.md` files missing the `## Available sub-agents for delegation` section | `for f in agents/*.md; do grep -q '^## Available sub-agents for delegation' "$f" \|\| echo "$f"; done` (any output → drift) | For each persona file lacking the section, append the appropriate Available-sub-agents block. For off-the-shelf personas (filenames matching `backend-engineer.md`, `frontend-engineer.md`, etc.), copy the section from the matching `templates/agents/<name>.md`. For custom personas (any other filename), match the persona's role description against the keyword index in `docs/subagents-registry.md` (Step 4b's logic) and render a best-guess section the user can edit. The migration script at `scripts/migrate-personas-to-voltagent-subagents.sh` (in the scaffold repo) implements this same logic for users who want to run it standalone — see "Standalone migration" below. |
 
 #### Surface the drift report
 
@@ -173,6 +175,27 @@ If the user picked `skip`, proceed to Step 2 with a flag noting which detectors 
 #### Idempotent re-run
 
 Running this skill on a fully-migrated project produces an all-`✓` drift report and skips Step 1.5 entirely (no PR opened, no migration prompts). Running on a partially-migrated project (e.g. user resolved D1–D5 manually but not D8–D9) produces a drift report showing only the remaining items.
+
+#### Standalone migration
+
+For users who don't want to re-invoke the full scaffold just to pick up D10/D11's changes (the v1.0.0 → post-v1 personas-and-sub-agents migration), the scaffold ships a standalone shell script:
+
+```bash
+# From the project root (a project scaffolded against v1.0.0 of this skill):
+bash <path-to-scaffold>/scripts/migrate-personas-to-voltagent-subagents.sh
+```
+
+The script:
+
+- Detects the scaffold install location (works whether the scaffold lives at `~/.claude/skills/agent-workflow-scaffold`, `skills/agent-workflow-scaffold`, or anywhere else).
+- For each `agents/*.md` file in the user's project, checks for the `## Available sub-agents for delegation` heading.
+- If missing and the filename matches an off-the-shelf persona (backend-engineer.md, frontend-engineer.md, qa-engineer.md, platform-engineer.md, product-designer.md, legal-advisor.md, project-manager.md, engineering-manager.md, pilot-lead.md, orchestrator.md, personal-assistant.md), appends the section verbatim from the matching `templates/agents/<name>.md` in the scaffold install.
+- If the filename is a custom persona, prints a "manual: see docs/subagents-registry.md" line and skips that file.
+- Also creates `docs/subagents-registry.md` from the scaffold's template if it doesn't already exist (the D10 step).
+- Runs inside a worktree (`.worktrees/migrate-voltagent-subagents/`), commits per persona with a clear message (`migrate: add Available sub-agents section to <persona>`), pushes the branch, opens a PR — same discipline the scaffold's own Step 1.5 migration uses.
+- Is idempotent: re-running on an already-migrated project detects every persona has the section and exits with "no migration needed."
+
+The script is the same logic as Step 1.5's D10/D11 detectors — written as a one-shot for users who want a quick `bash` invocation without re-running the full discovery interview.
 
 ### Step 2 — Discovery interview
 
@@ -574,6 +597,29 @@ For each proposed persona, look at its template's `required_skills:` frontmatter
 - **Builtin** — already shipped with Claude Code; nothing to install.
 - **Private** — placeholder URL in registry; user must substitute the team-private URL.
 
+#### 3c-sub. VoltAgent sub-agent plugins
+
+Cross-reference the confirmed persona shortlist against `templates/docs/subagents-registry.md` to compute the **VoltAgent plugin set**. Sub-agents are technology-specialist agents from the [VoltAgent awesome-claude-code-subagents](https://github.com/VoltAgent/awesome-claude-code-subagents) marketplace (10 category plugins, 141 sub-agents). They complement the scaffold's role-based personas: a Backend Engineer dispatches `python-pro` for deep Python work; an Orchestrator dispatches `multi-agent-coordinator` for fan-out tasks.
+
+Per persona, list the **primary plugins** (always relevant) and **conditional plugins** (relevant when the user's stack indicates them). Example for a Python-stack project:
+
+```
+Backend Engineer
+  Primary:     voltagent-core-dev (backend-developer, api-designer, microservices-architect, …)
+               voltagent-lang     (python-pro, fastapi-developer, sql-pro)
+  Conditional: voltagent-data-ai  (postgres-pro)  — recommended given Postgres in the stack
+
+QA Engineer
+  Primary:     voltagent-qa-sec   (qa-expert, test-automator, accessibility-tester, …)
+
+Orchestrator
+  Primary:     voltagent-meta     (multi-agent-coordinator, workflow-orchestrator, …)
+```
+
+Personas without a primary plugin (Personal Assistant) are noted explicitly so the user knows nothing is suggested for them.
+
+The scaffold does **not** auto-install in this step — that's coached in Step 7h (default-NO consent prompt with copy-paste commands) since marketplace plugins are user-globally persistent and `claude` CLI may not be plugin-authenticated yet on the user's machine.
+
 #### 3c-bis. PM-tool plan
 
 Based on Q9a, summarize the project-management plan in one of three modes:
@@ -626,14 +672,14 @@ If the user said "none yet" in Q12, this subsection still appears: the project i
 
 #### 3e. Confirmation
 
-After presenting 3a + 3b + 3c + 3c-bis + 3d, ask the user one clear confirm-or-edit question:
+After presenting 3a + 3b + 3c + 3c-sub + 3c-bis + 3d, ask the user one clear confirm-or-edit question:
 
 ```
 Does this look right? Reply "ship it" to generate everything as listed, or
 tell me what to add / remove / rename / update.
 ```
 
-Do not proceed until the user confirms or amends. If they edit the proposal, regenerate 3a–3d with their changes and re-confirm.
+Do not proceed until the user confirms or amends. If they edit the proposal, regenerate 3a–3d (including 3c-sub) with their changes and re-confirm.
 
 ### Step 4 — Generate the universal subset and the *confirmed* personas
 
@@ -656,6 +702,7 @@ Files **always** written (the universal subset, not persona-dependent):
 | `templates/docs/skills-registry.md` | `<project>/docs/skills-registry.md` | none |
 | `templates/docs/tech-docs-registry.md` | `<project>/docs/tech-docs-registry.md` | none |
 | `templates/docs/feature-overlap-registry.md` | `<project>/docs/feature-overlap-registry.md` | none |
+| `templates/docs/subagents-registry.md` | `<project>/docs/subagents-registry.md` | none |
 | `templates/pm/codebases.md` | `<project>/pm/codebases.md` | Variant-aware (see Step 2b.0). For each codebase: pick Variant A or B, render the matching template block, strip the `## Variant <X> — …` header lines and the HTML comment from the rendered output. Variant A substitutions: `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{REMOTE_URL}}`, `{{BASE_BRANCH}}`, `{{USER_FEATURE_BRANCH}}`, `{{SCAN_DATE}}`, `{{LANGUAGES}}`, `{{FRAMEWORKS}}`, `{{BUILD_TOOLING}}`, `{{INFRASTRUCTURE}}`, `{{OTHER_LIBRARIES}}`, `{{OWNING_PERSONAS}}`, `{{DOC_LINKS}}`, `{{DEPRECATION_NOTES}}`, `{{LOCAL_SKILL_PATH}}`. Variant B substitutions: same minus `{{REMOTE_URL}}`, `{{BASE_BRANCH}}`, `{{USER_FEATURE_BRANCH}}`. |
 | `templates/skills/README.md` | `<project>/skills/README.md` | none |
 | `templates/skills/codebase-skill-template/SKILL.md` | *(only if Step 2b.7a drafted at least one)* `<project>/skills/<codebase-slug>/SKILL.md` per codebase | `{{SKILL_NAME}}`, `{{SKILL_DESCRIPTION}}`, `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{NICHE_TECH_OVERVIEW}}`, `{{CONVENTIONS_BULLETS}}`, `{{COMMON_GOTCHAS_BULLETS}}`, `{{INTERNAL_DOCS_LINKS}}` |
@@ -678,7 +725,7 @@ Persona files written **only if** they appeared in the confirmed list from Step 
 | `templates/agents/product-designer.md` | `<project>/agents/product-designer.md` | `{{PROJECT_NAME}}` |
 | `templates/agents/legal-advisor.md` | `<project>/agents/legal-advisor.md` | `{{PROJECT_NAME}}` |
 | `templates/agents/pilot-lead.md` | `<project>/agents/pilot-lead.md` | `{{PROJECT_NAME}}` |
-| `templates/agents/custom-skeleton.md` | `<project>/agents/<role-slug>.md` | All `{{PERSONA_*}}`, `{{ROLE_PARAGRAPH}}`, `{{DOCUMENTS_LIST}}`, `{{BRANCH_PREFIX}}`, `{{WORKING_PATTERNS_BULLETS}}`, `{{PRIMARY_PARTNER_PERSONA}}`, etc. — populated from the discovery answers |
+| `templates/agents/custom-skeleton.md` | `<project>/agents/<role-slug>.md` | All `{{PERSONA_*}}`, `{{ROLE_PARAGRAPH}}`, `{{DOCUMENTS_LIST}}`, `{{BRANCH_PREFIX}}`, `{{WORKING_PATTERNS_BULLETS}}`, `{{PRIMARY_PARTNER_PERSONA}}`, etc. — populated from the discovery answers. `{{SUBAGENT_SECTION}}` is filled by matching the user's role description (Step 2 Q1 + Q3) against the keyword index in `templates/docs/subagents-registry.md` and rendering a "Recommended sub-agents" bullet list — see Step 4b below. |
 | `templates/agents/personal-assistant.md` | `<project>/agents/personal-assistant.md` | `{{PROJECT_NAME}}` |
 | `templates/pm/goals.md` *(only if Personal Assistant was confirmed in 3a)* | `<project>/pm/goals.md` | `{{PROJECT_NAME}}` |
 | `templates/pm/assistant-log.md` *(only if Personal Assistant was confirmed)* | `<project>/pm/assistant-log.md` | `{{PROJECT_NAME}}` |
@@ -686,6 +733,34 @@ Persona files written **only if** they appeared in the confirmed list from Step 
 The MCP-integration files (`templates/mcp.example.json` → `.mcp.example.json`, `templates/integrations.md` → `docs/integrations.md`) are written by Step 6 below, after the explicit MCP confirmation. The skill installs are handled by Step 7. Step 5 below handles the rules.
 
 After writing the personas, append a **Required skills** section to the bottom of `agents/README.md` (in the user's project) listing each (persona → skill) dependency in a small markdown table. This is the single readable summary a future contributor sees.
+
+#### Step 4b — Render `{{SUBAGENT_SECTION}}` for custom personas
+
+The off-the-shelf persona templates ship with a hand-curated **Available sub-agents for delegation** section already populated. Custom personas (rendered from `templates/agents/custom-skeleton.md`) have a `{{SUBAGENT_SECTION}}` placeholder the scaffold fills in here.
+
+For each `custom-skeleton.md`-based persona:
+
+1. Take the user's role description (Step 2 Q1 + Q3) plus the role title (Q1) and any specialty workflows (Q10).
+2. Match those against the **keyword index** at the bottom of `templates/docs/subagents-registry.md`. Each keyword row maps to one or more recommended plugins and top matching sub-agents.
+3. Render the matched plugins + sub-agents as a bullet list using the same shape as the off-the-shelf personas:
+
+   ```markdown
+   When work calls for deep technology specialization, dispatch the relevant sub-agent from the [VoltAgent](https://github.com/VoltAgent/awesome-claude-code-subagents) plugin set:
+
+   - **`<sub-agent-name>`** (`<plugin-name>`) — <one-line description>
+   - **`<sub-agent-name>`** (`<plugin-name>`) — <one-line description>
+   …
+
+   Install the plugin(s) via `claude plugin install <plugin> [<plugin>…]` (after a one-time `claude plugin marketplace add VoltAgent/awesome-claude-code-subagents`). See [`docs/subagents-registry.md`](../docs/subagents-registry.md) for the full mapping.
+   ```
+
+4. If no keyword matches the role (an unusual / one-off role), render a fallback section:
+
+   ```markdown
+   No off-the-shelf sub-agents in the [VoltAgent](https://github.com/VoltAgent/awesome-claude-code-subagents) marketplace match this persona's role directly. See [`docs/subagents-registry.md`](../docs/subagents-registry.md) — if any of the listed sub-agents apply, edit this section to reference them. Otherwise this persona operates without a delegation lane.
+   ```
+
+5. Substitute the rendered content for `{{SUBAGENT_SECTION}}` in the rendered persona file. The retained boilerplate ("the scaffold injected the sub-agent recommendations above…") stays so the user knows the section is editable.
 
 #### Step 4a — Create platform-compatibility symlinks and configs
 
@@ -1255,6 +1330,64 @@ If any auto-install fails or the user declines, the scaffold continues to Step 8
 
 The agent must ask before running `git clone` on the user's machine. The single batched consent prompt in 7c is the only point where it touches `~/.claude/skills/` or `skills/`. There is no implicit consent.
 
+#### 7h. VoltAgent sub-agent plugins
+
+For each persona confirmed in Step 3a, cross-reference [`docs/subagents-registry.md`](#) (which you've already written to the user's project in Step 4) to compute the **plugin set** to suggest. Aggregate across all confirmed personas, deduplicate, and present the plan.
+
+##### 7h.1 — Compute the plugin set
+
+The registry maps each off-the-shelf persona to **primary plugins** (always relevant) and **conditional plugins** (relevant when stack / work indicates them). For example:
+
+- Backend Engineer + Python stack → `voltagent-core-dev`, `voltagent-lang`
+- Backend Engineer + Postgres-heavy → also `voltagent-data-ai` (for `postgres-pro`, `database-optimizer`)
+- Platform Engineer → `voltagent-infra`
+- QA Engineer → `voltagent-qa-sec`
+- Orchestrator persona → `voltagent-meta` (high-leverage pairing — the meta plugin's `multi-agent-coordinator` and `workflow-orchestrator` directly augment the dispatch loop)
+- Personal Assistant → no primary plugin (the persona is purpose-built)
+
+For **custom-skeleton.md**-based personas, match the user's role description (Step 2 Q1 + Q3) against the keyword index in `docs/subagents-registry.md` to pick plugins.
+
+##### 7h.2 — Coach the marketplace add + plugin install
+
+Print the batched commands the user can run to install the matching plugins. Don't auto-run unless the user explicitly opts in (most users won't have set up `claude` CLI plugin auth before scaffold time):
+
+```
+VoltAgent sub-agent plugins for your confirmed personas:
+
+  Marketplace (one-time, if not already added):
+    claude plugin marketplace add VoltAgent/awesome-claude-code-subagents
+
+  Plugins to install:
+    claude plugin install voltagent-core-dev      # Backend Engineer, Frontend Engineer (primary)
+    claude plugin install voltagent-lang          # Backend Engineer, Frontend Engineer (primary)
+    claude plugin install voltagent-qa-sec        # QA Engineer (primary), Engineering Manager
+    claude plugin install voltagent-meta          # Orchestrator (primary), Engineering Manager
+
+Run them now? (Y/n) [defaults to NO — skip]
+```
+
+The default is **NO** because:
+- Marketplace plugins persist user-globally; the user should opt in explicitly.
+- `claude` CLI may not be authenticated for plugin operations on this machine yet.
+- Some users prefer to install only after they've reviewed each persona's Available-sub-agents section to confirm the plugins match their actual workflow.
+
+On `Y`: run each command via Bash, capturing failures (e.g. `claude: command not found` → tell the user to install Claude Code CLI; "marketplace already added" → harmless, continue; "plugin already installed" → harmless, continue). Continue past non-fatal errors so one failed plugin doesn't block the rest.
+
+On `N` or skipped: print the commands to copy-paste later. Surface them again in Step 9's summary.
+
+##### 7h.3 — Don't vendor or redistribute
+
+The scaffold ships **references** to VoltAgent sub-agents in `docs/subagents-registry.md` and in each persona's Available-sub-agents section. The actual sub-agent definitions live in the upstream marketplace; the user installs them via `claude plugin install`. The scaffold does **not** copy upstream files into the user's project, does not vendor anything, and does not commit any VoltAgent content.
+
+##### 7h.4 — Idempotency
+
+Re-running the scaffold reads the registry fresh, recomputes the plugin set against the (possibly updated) confirmed-persona list, and surfaces a delta:
+
+- Plugins newly required (a new persona was confirmed → its primary plugins are added).
+- Plugins no longer required (a persona was removed → its plugins move to "optional, was previously suggested").
+
+The user decides whether to install the new ones or uninstall the old ones; the scaffold doesn't auto-uninstall.
+
 ### Step 8 — Bootstrap memory
 
 Memory paths are user-scoped, not repo-scoped. They live at:
@@ -1385,6 +1518,14 @@ Skills:
               until the frontmatter is fixed and the scaffold is re-run.
               Omit this line if all personas parsed cleanly.>
 
+VoltAgent sub-agent plugins (from Step 7h):
+  Installed: <list voltagent plugins the scaffold actively installed (consent-gated)>
+  To install yourself: <list voltagent plugins the user opted out of installing now —
+                       include the marketplace-add command if it wasn't already added>
+  Already present: <list voltagent plugins that were already installed at scan time>
+  (omit this section entirely if no personas had recommended plugins,
+   e.g. a solo Personal-Assistant-only project)
+
 Memory bootstrapped:
   <list the memory entries seeded, including user-role-profile.md>
 
@@ -1425,6 +1566,7 @@ Stop. Do not proceed to do additional work unless the user asks.
 - **Discovery before generation.** Never write a persona file the user didn't confirm. Step 2 (interview) → Step 2b (codebase setup) → Step 3 (synthesis + confirmation) → Step 4 (write only what's confirmed) is the load-bearing sequence; do not collapse it.
 - **Niche codebase knowledge goes in a project-local skill, not a separate persona.** Personas describe *roles* (what someone does); skills describe *technical knowledge* (how to do the thing). When Step 2b.7 surfaces a codebase with niche tech or team-specific gotchas, the output is a draft `skills/<codebase-slug>/SKILL.md` — not a `custom-skeleton.md` persona. The standard persona that owns the codebase loads the local skill before starting work.
 - **PM-tool conventions go in a project-local skill, not in `pm/backlog.md`.** When the user has Linear / Jira / Notion / GitHub as their PM source of truth (Q9a), the live ticket state is in the tool — not in a markdown file the scaffold has to keep up to date. Step 5b drafts a `pm-<tool>-<project-slug>` skill at `skills/` that wraps the tool's MCP with project-specific conventions (workspace, team / project, issue prefix, label groups). The skill auto-loads when any persona starts PM-adjacent work. `pm/backlog.md` becomes a thin pointer doc, not a live mirror.
+- **Personas describe roles; sub-agents describe technology specializations.** The scaffold's `agents/*.md` files are role-based (Backend Engineer, QA Engineer, Engineering Manager). VoltAgent sub-agents (`python-pro`, `kubernetes-specialist`, `accessibility-tester`) are technology-specialist delegates the role-based personas dispatch when work calls for deep specialization. The two layers stack — never collapse them. Don't propose a custom-skeleton persona for "Python Engineer"; the answer is Backend Engineer + the `python-pro` sub-agent.
 - **Don't overwrite without asking.** This is the user's project — Step 1 detection is mandatory.
 - **Don't push to a referenced codebase's base branch.** Ever. Step 2b records the user's feature branch as the only acceptable PR target for each codebase. The orchestrator persona and AGENTS.md both restate this rule because it's load-bearing for safe multi-repo work.
 - **Don't dump every file in a wall of writes.** Confirm the persona / MCP / skill / codebase plan in Step 3, then generate in Step 4 onwards. The user can interrupt.

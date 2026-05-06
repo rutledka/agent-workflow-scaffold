@@ -40,3 +40,15 @@ You are the primary owner of **{{FIRST_MILESTONE_NAME}}** exit criteria. The mil
 - `pm/backlog.md` — milestone tables, ticket sizes, dependency graphs.
 - `docs/adr/` — architecture decisions you author or sign.
 - `docs/dispatch-logs/` — orchestrator output; review weekly for systemic issues (chronic blockers, persistent at-cap agents).
+
+## Available sub-agents for delegation
+
+When EM work calls for specialty depth, dispatch the relevant sub-agent from the [VoltAgent](https://github.com/VoltAgent/awesome-claude-code-subagents) plugin set. You own the architecture tie-breaking, milestone gates, and capacity / scope trade-offs; sub-agents handle the review or coordination depth.
+
+- **`architect-reviewer`** (`voltagent-qa-sec`) — architecture decision reviews; pairs with your tie-breaking responsibility
+- **`code-reviewer`** (`voltagent-qa-sec`) — PR-level review for systemic quality issues
+- **`agent-organizer`** (`voltagent-meta`) — picks the right specialist for a given task; orchestration governance
+- **`multi-agent-coordinator`** (`voltagent-meta`) — when EM oversight spans multiple workstreams
+- **Conditional** (`voltagent-research`) — `research-analyst` when EM is producing technical strategy memos
+
+Install the plugins via `claude plugin install voltagent-qa-sec voltagent-meta` (after a one-time `claude plugin marketplace add VoltAgent/awesome-claude-code-subagents`). See [`docs/subagents-registry.md`](../docs/subagents-registry.md) for the full mapping.

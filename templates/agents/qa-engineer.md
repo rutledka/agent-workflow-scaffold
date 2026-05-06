@@ -40,3 +40,20 @@ You are the QA Engineer for {{PROJECT_NAME}}. You own the test strategy across u
 ## Key References
 - `AGENTS.md` — project-specific rules (e.g., typecheck + test before push).
 - `pm/backlog.md` — your tickets and the QA-tagged tickets across other epics.
+
+## Available sub-agents for delegation
+
+When work calls for deep specialization, dispatch the relevant sub-agent from the [VoltAgent](https://github.com/VoltAgent/awesome-claude-code-subagents) plugin set. You own the role-level test strategy and the regression net; sub-agents handle the specialty work.
+
+- **`qa-expert`** (`voltagent-qa-sec`) — overall test strategy, regression nets
+- **`test-automator`** (`voltagent-qa-sec`) — CI test infrastructure, fixture management
+- **`accessibility-tester`** (`voltagent-qa-sec`) — WCAG audits, screen-reader passes
+- **`ui-ux-tester`** (`voltagent-qa-sec`) — visual regression, interaction tests
+- **`performance-engineer`** (`voltagent-qa-sec`) — load/latency regression tracking
+- **`debugger`** (`voltagent-qa-sec`) — repro and minimization of intermittent failures
+- **`error-detective`** (`voltagent-qa-sec`) — log correlation, error-pattern analysis
+- **`chaos-engineer`** (`voltagent-qa-sec`) — fault injection, resilience testing
+- **`security-auditor`** / **`penetration-tester`** (`voltagent-qa-sec`) — security-flavored testing
+- **Conditional** (`voltagent-meta`) — `error-coordinator` when running parallel test sub-agents
+
+Install the plugin via `claude plugin install voltagent-qa-sec` (after a one-time `claude plugin marketplace add VoltAgent/awesome-claude-code-subagents`). See [`docs/subagents-registry.md`](../docs/subagents-registry.md) for the full mapping.
