@@ -63,6 +63,29 @@ Sub-agents in Claude Code's `isolation: "worktree"` mode typically cannot write 
 
 See `agents/orchestrator.md` "Step 4 — Dispatch sub-agents" for the full pattern.
 
+### Rule: Brief sub-agents with persona context
+
+When dispatching a VoltAgent technology specialist (or any sub-agent) from a role-based persona in `agents/`, the persona makes the role-level decisions **first** and passes them to the sub-agent as part of the dispatch brief. **Sub-agents don't read your project, your conventions, your milestone state, or your open ADRs — you do.** Without context, you get generic output; with it, you get specialized depth applied to your project.
+
+The persona's value is the **briefing and the integration**, not the typing. A well-briefed sub-agent produces output a senior engineer in the role would have produced; a poorly-briefed one produces a Stack Overflow answer.
+
+**The dispatch brief includes:**
+
+1. **Scope** — the ticket / file / area in scope, with paths and IDs.
+2. **Role-level decisions already made** — the per-persona list (see each `agents/<role>.md`'s **Available sub-agents** section). These stay with the persona; **don't delegate them**.
+3. **Constraints from this project** — which library to use (per `pm/codebases.md`'s Deprecation notes), which files to leave alone, project-specific rules from this file, and any `docs/adr/*.md` that apply.
+4. **The deliverable shape** — file paths the sub-agent should produce, function signatures, the tests it should pass, the format of its return.
+5. **Open questions or tradeoffs** the persona has flagged for the sub-agent's input. Some questions are role-level (the persona decides); some are technique-level (the sub-agent decides). State which is which.
+6. **Findings from prior dispatches in this thread** — if the persona has already learned that, e.g., "this query plan blows up past 100k rows," the next dispatch repeats that finding so the sub-agent doesn't re-derive it.
+
+**After the sub-agent returns:**
+
+1. **Review the output against the brief.** If the sub-agent drifted from a constraint or a role-level decision, push back; don't paper-over.
+2. **Integrate from the main session.** Per the harness rule above, sub-agents in worktree-isolation can't write files — the persona's main session writes, commits, and PRs.
+3. **Capture findings.** If the sub-agent surfaced something role-relevant (a perf cliff, an API gotcha, a recurring pattern), capture it: append to the persona's working notes, file a follow-up ticket, or open an ADR if it's load-bearing. Don't let insight evaporate between dispatches.
+
+This rule applies to every persona in `agents/` that has an **Available sub-agents for delegation** section. The Orchestrator persona at `agents/orchestrator.md` adds an extra layer (it briefs role-personas, who then brief sub-agents) — same pattern, one level up.
+
 ### Commit message style
 - Imperative mood: `add`, `fix`, `refactor`, `remove` — not `added`, `fixed`.
 - Reference epic/ticket IDs where applicable: `EPIC-03-T02: integrate login flow`.

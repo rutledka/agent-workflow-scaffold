@@ -285,3 +285,38 @@ These are non-negotiable. If a sub-agent violates any of these, treat the run as
 - Migration conventions (e.g., additive-only).
 - API contract update requirements.
 - Any other rules captured during scaffolding.
+
+---
+
+## Available sub-agents for delegation
+
+The Orchestrator + the [VoltAgent meta-orchestration plugin](https://github.com/VoltAgent/awesome-claude-code-subagents) is the highest-leverage pairing in the scaffold. The plugin's coordinators directly augment the dispatch loop above — use them as building blocks for the Step 4 dispatches rather than treating the loop as a single monolith.
+
+**You don't dispatch sub-agents directly to do feature work.** You dispatch *role personas* (Backend Engineer, QA Engineer, etc.); they brief their own VoltAgent sub-agents per the protocol in `AGENTS.md` "Rule: Brief sub-agents with persona context." The meta-orchestration sub-agents below are for *your* loop — coordinating fan-outs, sequencing gates, aggregating errors — not for replacing the role personas.
+
+### Role-level decisions you keep — never delegate
+
+Surface these in every dispatch brief so the role persona (or a meta sub-agent) has enough context to execute correctly:
+
+- **Backlog state and milestone framing.** Current milestone, exit criteria, what's `In Progress` vs. `Not Started` vs. blocked. The role persona doesn't read the backlog every dispatch; you summarize it.
+- **PR review classification.** Which open-PR items are HIGH (blocking) vs. MEDIUM (address-this-cycle) vs. LOW (nit, drop). The role persona acts on your classification.
+- **Per-agent priority decisions.** The Step 3 decision tree (review > cap > unblocked) is yours — the role persona executes the dispatch you brief.
+- **Cross-codebase context.** Which codebase the work touches (per `pm/codebases.md`), which feature branch is the PR target, which local skill applies. Pass these in the brief; the role persona doesn't re-derive.
+- **Findings from prior dispatch cycles.** If yesterday's dispatch surfaced "the QA flake is timing-sensitive" or "this Backend PR can't ship without the matching Frontend PR," repeat that in today's brief — both to the persona and in your dispatch log.
+- **Stop conditions.** When the orchestrator's own dispatch should pause (a HIGH item across the team, a milestone gate that needs human sign-off). The role personas keep working until you say stop.
+
+### Sub-agents available
+
+- **`multi-agent-coordinator`** (`voltagent-meta`) — coordinates multiple sub-agents on one task; use when a ticket spans two or more role personas (e.g., a backend + frontend cross-cutting feature)
+- **`workflow-orchestrator`** (`voltagent-meta`) — sequences multi-step workflows with explicit gates; useful for milestone exit criteria with ordered dependencies
+- **`task-distributor`** (`voltagent-meta`) — fan-out work across specialists when several independent sub-tasks can run in parallel
+- **`context-manager`** (`voltagent-meta`) — preserves state across sub-agent dispatches; pairs with `agents/personal-assistant.md` if it's confirmed
+- **`error-coordinator`** (`voltagent-meta`) — aggregates errors from parallel sub-agent runs; route here when a fan-out hits multiple failures
+- **`agent-organizer`** (`voltagent-meta`) — picks the right specialist for a given task; useful when the orchestrator is unsure which engineering persona owns a ticket
+- **`knowledge-synthesizer`** (`voltagent-meta`) — combines outputs from multiple sub-agents into a single dispatch-log entry
+
+The role-specific sub-agents (backend specialists, QA specialists, etc.) are listed in each engineering persona's own **Available sub-agents for delegation** section — the orchestrator dispatches *those* personas, which dispatch *their* sub-agents in turn.
+
+Install the plugin via `claude plugin install voltagent-meta` (after a one-time `claude plugin marketplace add VoltAgent/awesome-claude-code-subagents`). The meta plugin is most useful when at least one of `voltagent-core-dev` / `voltagent-lang` / `voltagent-infra` / `voltagent-qa-sec` is also installed — i.e. it has specialists to coordinate.
+
+See [`docs/subagents-registry.md`](../docs/subagents-registry.md) for the full mapping.

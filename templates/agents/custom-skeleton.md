@@ -38,3 +38,9 @@ You are the {{PERSONA_TITLE}} for {{PROJECT_NAME}}. {{ROLE_PARAGRAPH}}
 - {{PRIMARY_OWNED_DOC}} — your authored document.
 - `docs/adr/` — decisions in your scope.
 {{ADDITIONAL_REFERENCES_OPTIONAL}}
+
+## Available sub-agents for delegation
+
+{{SUBAGENT_SECTION}}
+
+*The scaffold injected the sub-agent recommendations above by matching this persona's role description against the keyword index in [`docs/subagents-registry.md`](../docs/subagents-registry.md). If the matches don't fit, edit this section directly — it's a starting point, not a contract. The off-the-shelf personas have hand-curated mappings; custom roles get the registry's best guess.*

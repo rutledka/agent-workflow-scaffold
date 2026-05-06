@@ -127,6 +127,7 @@ Re-running the skill on the same project re-detects existing files, **re-runs th
 │   ├── skills-registry.md             # known agent skills + install commands
 │   ├── tech-docs-registry.md          # library / framework → official docs URL
 │   ├── feature-overlap-registry.md    # overlapping libs → deprecation candidates
+│   ├── subagents-registry.md          # persona → VoltAgent plugin / sub-agent mapping
 │   ├── adr/
 │   │   └── 0000-template.md
 │   └── dispatch-logs/
@@ -187,6 +188,42 @@ The single most useful thing this skill produces is `agents/orchestrator.md`. It
 6. Write a dispatch log to `docs/dispatch-logs/YYYY-MM-DD.md` and open a PR for it.
 
 The orchestrator is what turns "we have agent personas" into "we have an executable workflow." Without it, the personas are decorative.
+
+---
+
+## Sub-agents — VoltAgent integration
+
+Each generated persona ships with an **Available sub-agents for delegation** section pointing at matching sub-agents in the [VoltAgent awesome-claude-code-subagents](https://github.com/VoltAgent/awesome-claude-code-subagents) plugin marketplace (10 category plugins, 141 sub-agents). The two layers stack cleanly:
+
+- **Personas** describe **roles** — Backend Engineer, QA Engineer, Engineering Manager. Generated from the discovery interview; live in `agents/*.md`.
+- **Sub-agents** describe **technology specializations** — `python-pro`, `kubernetes-specialist`, `accessibility-tester`. Installed via `claude plugin install`; dispatched by personas when work calls for deep specialization.
+
+The mapping (which plugins each persona suggests, which specific sub-agents it lists) is documented in [`templates/docs/subagents-registry.md`](./templates/docs/subagents-registry.md) and copied into every scaffolded project as `docs/subagents-registry.md`.
+
+The scaffold **does not auto-install** the marketplace plugins — they're user-globally persistent and `claude` CLI plugin auth may not be set up at scaffold time. Step 7h instead surfaces the install plan with a copy-paste-ready batch:
+
+```bash
+claude plugin marketplace add VoltAgent/awesome-claude-code-subagents
+claude plugin install voltagent-core-dev voltagent-lang voltagent-qa-sec voltagent-meta
+```
+
+Re-runs of the scaffold reconcile the install plan against the (possibly updated) persona set and surface a delta — newly required plugins, plugins no longer required.
+
+### Migrating a v1.0.0-scaffolded project to pick up the sub-agents wiring
+
+Two paths:
+
+1. **Re-run `/agent-workflow-scaffold`.** Step 1.5 detectors D10 + D11 detect missing `docs/subagents-registry.md` and missing **Available sub-agents for delegation** sections in `agents/*.md`, and present the migration plan inside a worktree-and-PR.
+2. **Run the standalone migration script** for a one-shot bash invocation:
+
+   ```bash
+   cd <your-project>
+   bash <path-to-scaffold>/scripts/migrate-personas-to-voltagent-subagents.sh
+   ```
+
+   The script appends the section verbatim from the scaffold templates for off-the-shelf personas, copies `docs/subagents-registry.md` if missing, runs in a worktree, and opens a PR. Custom personas are listed for manual editing against the registry's keyword index. Idempotent — re-running on an already-migrated project exits with "no migration needed."
+
+Flags: `--no-pr` (stop at commits in worktree), `--dry-run` (preview without writes).
 
 ---
 
