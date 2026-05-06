@@ -31,11 +31,13 @@ The skill is now available in every Claude Code session as `/agent-workflow-scaf
 
 ### Option 2 — Project-scoped via `git submodule`
 
-Add the skill as a submodule under the project's `.claude/skills/` directory:
+Add the skill as a submodule under the project's `skills/` directory (the canonical, vendor-neutral path), then create the `.claude/skills → ../skills` symlink so Claude Code finds it:
 
 ```bash
 cd <your-project>
-git submodule add git@github.com:rutledka/agent-workflow-scaffold.git .claude/skills/agent-workflow-scaffold
+git submodule add git@github.com:rutledka/agent-workflow-scaffold.git skills/agent-workflow-scaffold
+mkdir -p .claude && [ -e .claude/skills ] || ln -s ../skills .claude/skills
+git add skills/agent-workflow-scaffold .claude/skills .gitmodules
 git commit -m "tooling: add agent-workflow-scaffold skill"
 ```
 
@@ -47,12 +49,15 @@ If you don't want a submodule, copy the skill into the project once:
 
 ```bash
 cd <your-project>
-mkdir -p .claude/skills
+mkdir -p skills
 curl -L https://github.com/rutledka/agent-workflow-scaffold/archive/refs/heads/main.tar.gz \
-  | tar -xz -C .claude/skills/ --strip-components=1 --one-top-level=agent-workflow-scaffold
+  | tar -xz -C skills/ --strip-components=1 --one-top-level=agent-workflow-scaffold
+mkdir -p .claude && [ -e .claude/skills ] || ln -s ../skills .claude/skills
 ```
 
 This snapshots the skill at a point in time. Updates require re-running the curl.
+
+> **Why `skills/` and not `.claude/skills/` directly?** The scaffold's methodology treats `skills/` as the canonical, vendor-neutral path for project-local skills; `.claude/skills` is a symlink to it so Claude Code's loader works without forcing a tool-specific directory name. Installing the scaffold to `.claude/skills/` directly works in the moment but breaks the convention — when you later run the scaffold and it tries to set up `.claude/skills → ../skills`, the directory already exists and the symlink isn't created, leaving `.claude/skills/` (containing the scaffold) split from `skills/` (containing the project-local skills the scaffold creates). The two-step install above keeps the layout consistent from day one.
 
 ---
 
@@ -165,6 +170,8 @@ Plus user-scoped memory at `~/.claude/projects/<your-project-slug>/memory/`:
 - `feedback-decisions-via-adr.md`
 - `feedback-subagent-write-permissions.md`
 - `user-prefer-concrete-comparisons.md`
+- `user-role-profile.md` — generated from your discovery answers; portable across projects
+- `personal-assistant-context.md` — only if the Personal Assistant persona was confirmed in Step 3
 
 ---
 

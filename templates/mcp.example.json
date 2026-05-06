@@ -4,9 +4,10 @@
   "_authoritative_pm_tool": "document",
   "_authoritative_pm_tool_options": [
     "document — pm/backlog.md is the source of truth (default)",
-    "linear — Linear is the source of truth; pm/backlog.md is regenerated",
-    "jira — Jira is the source of truth; pm/backlog.md is regenerated",
-    "notion — Notion database is the source of truth; pm/backlog.md is a reference"
+    "linear — Linear is the source of truth; pm/backlog.md is a pointer doc",
+    "jira — Jira is the source of truth; pm/backlog.md is a pointer doc",
+    "notion — Notion is the source of truth; pm/backlog.md is a pointer doc",
+    "github — GitHub Issues is the source of truth; pm/backlog.md is a pointer doc"
   ],
 
   "mcpServers": {

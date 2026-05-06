@@ -1,6 +1,7 @@
 ---
 name: Feedback - Worktrees go inside the repo, not as siblings
 description: Git worktrees live at `.worktrees/<branch-name>/` inside the repo (gitignored), never as a sibling directory next to the repo
+type: feedback
 ---
 
 When creating a git worktree, the path is `.worktrees/<branch-name>/` **inside the repo**, not a sibling directory next to it. The `.worktrees/` path is gitignored.

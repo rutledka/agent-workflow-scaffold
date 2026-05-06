@@ -34,7 +34,9 @@ Usage:
   install.sh [--user | --project]
 
   --user      Install to ~/.claude/skills/$SKILL_NAME (available in every project)
-  --project   Install to ./.claude/skills/$SKILL_NAME (scoped to current project)
+  --project   Install to ./skills/$SKILL_NAME (scoped to current project)
+              and create the .claude/skills → ../skills symlink so Claude Code
+              finds the skill via its expected path.
 
 If neither flag is given, you'll be asked interactively.
 EOF
@@ -50,7 +52,7 @@ done
 if [[ -z "$mode" ]]; then
   echo "Where should the skill be installed?"
   echo "  1) User-scoped — ~/.claude/skills/$SKILL_NAME (available in every project)"
-  echo "  2) Project-scoped — ./.claude/skills/$SKILL_NAME (scoped to current project)"
+  echo "  2) Project-scoped — ./skills/$SKILL_NAME (scoped to current project)"
   read -r -p "Pick 1 or 2: " choice
   case "$choice" in
     1) mode="user" ;;
@@ -66,7 +68,7 @@ elif [[ "$mode" == "project" ]]; then
     echo "Project-scoped install requires being inside a git repo (current dir has no .git)." >&2
     exit 1
   fi
-  target=".claude/skills/$SKILL_NAME"
+  target="skills/$SKILL_NAME"
 fi
 
 if [[ -e "$target" ]]; then
@@ -85,6 +87,25 @@ elif git clone "$HTTPS_REPO_URL" "$target"; then
 else
   echo "git clone failed for both SSH and HTTPS." >&2
   exit 1
+fi
+
+# For project-scoped installs, ensure the .claude/skills → ../skills symlink
+# exists so Claude Code finds the skill via its expected path. The canonical
+# location is skills/<name>/ (vendor-neutral, portable to other AI tools);
+# Claude Code reads .claude/skills/ and resolves through the symlink.
+if [[ "$mode" == "project" ]]; then
+  mkdir -p .claude
+  if [[ ! -e .claude/skills ]]; then
+    ln -s ../skills .claude/skills
+    echo "Created symlink: .claude/skills -> ../skills"
+  elif [[ -L .claude/skills ]]; then
+    : # symlink already present, nothing to do
+  else
+    echo
+    echo "Note: .claude/skills exists as a real directory (not the canonical symlink)."
+    echo "      Re-run /agent-workflow-scaffold inside Claude Code — its migration mode"
+    echo "      (Step 1.5 detector D2) handles moving content to skills/ + the symlink."
+  fi
 fi
 
 echo
