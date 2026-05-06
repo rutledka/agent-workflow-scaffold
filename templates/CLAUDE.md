@@ -67,12 +67,16 @@ This rule does **not** apply to the project where this `CLAUDE.md` lives — tha
 **Decisions**
 - Load-bearing decisions (architecture choices, framework selection, schema structure, auth model) go into a numbered ADR in `docs/adr/`, not into chat or commit messages. ADR template: `docs/adr/0000-template.md`.
 
+**Project-local skills**
+- Before starting any task, check `.claude/skills/` for project-local skills relevant to the codebase or section you're touching. Skills there capture niche knowledge that the generic persona working patterns don't cover (e.g. codebase-specific gotchas, team conventions, framework quirks). If a skill's `description:` matches the task at hand, **load it via the Skill tool before doing the work** — the skill's conventions and gotchas take precedence over the generic working patterns in your persona file. `pm/codebases.md` records which codebases have a paired local skill.
+
 ## Project Structure
 
 ```
-agents/     — agent persona definitions (role-specific system prompts; not deployed code)
-docs/       — technical documents, ADRs, dispatch logs, registries (skills, tech docs, feature overlap)
-pm/         — product backlog, roadmap, management notes, codebase registry
+agents/         — agent persona definitions (role-specific system prompts; not deployed code)
+docs/           — technical documents, ADRs, dispatch logs, registries (skills, tech docs, feature overlap)
+pm/             — product backlog, roadmap, management notes, codebase registry
+.claude/skills/ — project-local Claude Code skills (codebase-niche knowledge, on-call playbooks, etc.)
 ```
 
 ## Key Documents

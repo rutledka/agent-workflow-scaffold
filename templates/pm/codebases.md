@@ -5,6 +5,7 @@ This document tracks codebases that **{{PROJECT_NAME}}** agents may modify on th
 1. **Agents may run from outside any codebase.** A user might invoke an agent from an orchestration hub (`~/Code/my-projects/`) and have it work on a separate codebase (`~/Code/some-app/`). Without explicit pointers, the agent has no way to know where the codebase lives.
 2. **Each codebase is shared with other people.** Agents must **never** push directly to a codebase's base branch (`main` / `master` / `dev` / `develop` / etc.). Every PR targets the **user's feature branch** in that codebase. The user merges from their feature branch to base themselves, after review.
 3. **Each codebase has its own technology stack.** The scaffold scans for languages, frameworks, and libraries on add and the inventory feeds the personas that own that codebase. When two libraries with significant feature overlap appear and one looks abandoned, the scaffold surfaces it.
+4. **Niche codebase knowledge lives in a project-local skill, not in a separate persona.** When a codebase has distinct domain knowledge (8th Wall SLAM, FPGA toolchains, regulated-finance code, team-specific conventions), the scaffold drafts a project-local skill at `.claude/skills/<codebase-slug>/SKILL.md` that captures it. Personas check `.claude/skills/` before starting work and load any matching skill — this keeps the persona set tight (just roles) while still surfacing the right context for niche work.
 
 ## How agents use this file
 
@@ -35,6 +36,7 @@ The scaffold scans lock files (`package-lock.json`, `poetry.lock`, `Gemfile.lock
 - **Base branch** (do **NOT** target directly): `{{BASE_BRANCH}}`
 - **User's feature branch** (PR target for all agent work): `{{USER_FEATURE_BRANCH}}`
 - **Last scanned**: `{{SCAN_DATE}}`
+- **Project-local skill** (if any): `{{LOCAL_SKILL_PATH}}` *(empty if Step 2b.7 decided this codebase didn't warrant one)*
 
 ### Stack inventory
 

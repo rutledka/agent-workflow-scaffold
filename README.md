@@ -69,7 +69,7 @@ The skill is **discovery-driven**. It does not generate a fixed set of personas 
 1. **Detect** whether the project already has any of the artifacts it would create (`CLAUDE.md`, `agents/`, `pm/`, `docs/dispatch-logs/`). If so, it asks before overwriting.
 2. **Discovery interview** — one message of 13 questions covering: your role + decisions you own, daily work + recent task examples + recurring pain points, project name + slug + GitHub repo + primary stack, collaborators, active tools, specialty workflows, first milestone, **and the codebases you work in (single / multiple / monorepo, with paths, plus any tech distinct enough to warrant its own persona)**. You skip whatever doesn't apply.
 3. **Codebase setup (Step 2b)** — for each codebase you listed, the scaffold verifies the path, confirms it's a git repo, **auto-detects the base branch** (`main` / `master` / `dev` / `develop`), establishes the **user's feature branch** as the agent PR target (creates it on consent so agents never push to base directly), and **scans the codebase for technology inventory** by reading `package.json` / `pyproject.toml` / `Gemfile` / `go.mod` / `Cargo.toml` / lock files / Dockerfiles / Terraform / GitHub workflows. Cross-references against `docs/feature-overlap-registry.md` to find pairs of libraries with significant overlap, computes install-date gaps, and **asks about deprecation** when the gap exceeds a year.
-4. **Synthesize a proposal** — based on the discovery answers + codebase scans, propose 3–7 personas tailored to your work (citing the discovery answer that triggered each), plus a shortlist of trusted MCP integrations, Claude Code skills, and a per-codebase plan (paths, base branches, feature branches, tech inventories, deprecation notes, owning personas). You confirm or edit before any writes happen. Off-the-shelf templates exist for Backend / Frontend / QA / Platform / Designer / Legal / Pilot Lead / Project Manager / Engineering Manager / Orchestrator; off-list roles and codebase-niche roles (e.g. AR Engineer for an 8th Wall codebase) get authored from a `custom-skeleton.md`.
+4. **Synthesize a proposal** — based on the discovery answers + codebase scans, propose 3–7 personas tailored to your work (citing the discovery answer that triggered each), plus a shortlist of trusted MCP integrations, Claude Code skills, and a per-codebase plan (paths, base branches, feature branches, tech inventories, deprecation notes, owning personas, drafted project-local skills). You confirm or edit before any writes happen. Off-the-shelf templates exist for Backend / Frontend / QA / Platform / Designer / Legal / Pilot Lead / Project Manager / Engineering Manager / Orchestrator; off-list **roles** (e.g. Growth Lead, ML Researcher) get authored from a `custom-skeleton.md`. **Niche codebase knowledge** does *not* become a custom persona — it goes into a project-local skill at `.claude/skills/<codebase-slug>/SKILL.md` that the standard owning persona loads before starting work. Personas describe roles; skills describe technical knowledge.
 4. **Generate the universal subset and confirmed personas** — only what you agreed to. A solo founder might end up with 3 personas; a 12-person team might end up with 11.
 5. **Generate the universal subset and confirmed personas** — only what you agreed to. A solo founder might end up with 3 personas; a 12-person team might end up with 11. Each persona owning a registered codebase has the codebase's tech-doc URLs auto-injected into its Key References section and the codebase's confirmed deprecation notes auto-injected into its Working patterns section.
 6. **Project-specific rules** — stack-specific follow-ups (Zod / typecheck / migration policy / API spec / etc.) appended to `CLAUDE.md`'s "Project-specific rules" section. **Plus the multi-codebase PR rule** when at least one external codebase was registered: agents target the user's feature branch, never the codebase's base branch.
@@ -112,15 +112,20 @@ Re-running the skill on the same project re-detects existing files, **re-runs th
 │   ├── codebases.md                   # if any external codebase was registered
 │   └── README.md
 └── docs/
-    ├── README.md
-    ├── integrations.md                # if any MCP integration was enabled
-    ├── skills-registry.md             # known Claude Code skills + install commands
-    ├── tech-docs-registry.md          # library / framework → official docs URL
-    ├── feature-overlap-registry.md    # overlapping libs → deprecation candidates
-    ├── adr/
-    │   └── 0000-template.md
-    └── dispatch-logs/
-        └── .gitkeep
+│   ├── README.md
+│   ├── integrations.md                # if any MCP integration was enabled
+│   ├── skills-registry.md             # known Claude Code skills + install commands
+│   ├── tech-docs-registry.md          # library / framework → official docs URL
+│   ├── feature-overlap-registry.md    # overlapping libs → deprecation candidates
+│   ├── adr/
+│   │   └── 0000-template.md
+│   └── dispatch-logs/
+│       └── .gitkeep
+└── .claude/
+    └── skills/                        # project-local Claude Code skills
+        ├── README.md
+        └── <codebase-slug>/           # if any codebase warranted a local skill
+            └── SKILL.md
 
 # `agents/` only contains the personas the discovery interview produced —
 # typically 3–7 of the eleven off-the-shelf templates plus any custom roles.
@@ -130,6 +135,11 @@ Re-running the skill on the same project re-detects existing files, **re-runs th
 # at least one external codebase. The file is the source of truth for
 # multi-repo work — paths, base branches, the user's feature branches
 # (PR targets), tech inventories, deprecation notes.
+#
+# `.claude/skills/<codebase-slug>/` is only present if Step 2b.7 surfaced
+# niche knowledge for that codebase. Personas check `.claude/skills/`
+# before starting work and load any matching skill — niche codebase
+# knowledge lives here instead of becoming a separate persona.
 
 # plus, at the repo root, if any integration was enabled:
 .mcp.example.json                      # example MCP server config (committed)

@@ -24,8 +24,13 @@ This skill's repo contains a `templates/` directory. Each file is the source of 
 
 ```
 templates/
-├── CLAUDE.md                          # universal rules subset (incl. multi-codebase PR rule)
+├── CLAUDE.md                          # universal rules subset (incl. multi-codebase PR rule + local-skills rule)
 ├── .gitignore                         # adds .worktrees/
+├── .claude/
+│   └── skills/
+│       ├── README.md                  # explains project-local skill convention
+│       └── codebase-skill-template/   # template the scaffold copies + customizes (Step 2b.7a)
+│           └── SKILL.md
 ├── agents/
 │   ├── orchestrator.md                # the dispatch loop — proposed by default in Step 3
 │   ├── project-manager.md             # proposed when discovery indicates PM work
@@ -37,14 +42,15 @@ templates/
 │   ├── product-designer.md            # proposed when discovery mentions Figma / design system
 │   ├── legal-advisor.md               # proposed when discovery mentions T&C / GDPR / compliance
 │   ├── pilot-lead.md                  # proposed when discovery mentions pilot / launch ops
-│   ├── custom-skeleton.md             # filled in for any role not covered above; also used for
-│   │                                  #   codebase-niche personas surfaced by Step 2b's scan
+│   ├── custom-skeleton.md             # filled in for off-list ROLES (e.g. Growth Lead). NOT
+│   │                                  #   used for codebase-niche knowledge — that goes into
+│   │                                  #   .claude/skills/<codebase-slug>/SKILL.md instead.
 │   └── README.md                      # the persona-file convention + frontmatter docs
 ├── pm/
 │   ├── backlog.md
 │   ├── management.md
 │   ├── roadmap.md
-│   ├── codebases.md                   # multi-codebase registry (Step 2b)
+│   ├── codebases.md                   # multi-codebase registry (Step 2b); points at local skills
 │   └── README.md
 ├── docs/
 │   ├── README.md
@@ -253,36 +259,50 @@ On `Y`, record a deprecation note to add to the codebase's `pm/codebases.md` ent
 
 On `n` or `skip`, record nothing — the libraries legitimately coexist or the user isn't sure yet. The scaffold can re-ask on the next run if the gap widens.
 
-#### 2b.7 — Decide whether the codebase warrants its own persona
+#### 2b.7 — Decide whether the codebase warrants a project-local skill
 
-Use best judgement against the user's answer to Q13 and the inventory from 2b.5. Surface a *suggestion* to the user — don't auto-create.
+Niche codebase knowledge belongs in a **project-local skill** under `.claude/skills/<codebase-slug>/`, not in a separate persona. Roles describe *what someone does*; skills describe *technical knowledge for doing the thing*. Treat codebase-specific gotchas, conventions, and niche-tech overviews as the latter.
 
-Heuristics for "yes, codebase warrants its own persona":
+Use best judgement against the user's answer to Q13 and the inventory from 2b.5 to decide whether to draft a local skill for this codebase. Surface a *suggestion* to the user — don't auto-create.
+
+Heuristics for "yes, draft a project-local skill":
 
 - The user said "yes" to Q13 and named distinct skills / domain knowledge.
-- The codebase contains a niche framework that doesn't map to a standard persona (e.g. 8th Wall WebAR, Unity, Unreal, FPGA toolchain, embedded firmware).
-- The codebase is large enough (>500 LoC of non-vendored source) and self-contained that knowing only its surface is meaningfully different from knowing the rest of the project.
+- The codebase contains a niche framework with non-obvious gotchas (e.g. 8th Wall WebAR, Unity, Unreal, FPGA toolchain, embedded firmware, regulated-finance code).
+- The codebase has team-specific conventions or repeated bug patterns that any contributor should know before touching the code.
+- The codebase is large enough (>500 LoC of non-vendored source) and self-contained that knowing its surface is meaningfully different from knowing the rest of the project.
 
-Heuristics for "no, standard personas cover it":
+Heuristics for "no, standard personas cover it via the codebase's tech inventory":
 
 - The user said "no" to Q13.
-- The codebase is a standard Node / Python / Go service that fits cleanly under Backend Engineer or a similar standard persona.
-- The codebase is small (<500 LoC) or is a thin wrapper around external services.
+- The codebase is a standard Node / Python / Go service whose conventions are already encoded in the standard persona's working patterns.
+- The codebase is small (<500 LoC) or is a thin wrapper around external services with no team-specific gotchas.
 
-If yes, propose a custom persona via `custom-skeleton.md` in Step 3, with the role paragraph drafted from the niche-specific signal (e.g. "AR Engineer — owns 8th Wall SLAM integration and the 3D rendering pipeline; works in `<codebase-path>/`"). If no, the codebase is owned by an existing persona that you already proposed.
+#### 2b.7a — Draft the local skill (only if 2b.7 said "yes")
 
-Either way, every codebase has at least one **owning persona** recorded in its `pm/codebases.md` entry — so dispatch can resolve which persona to use at ticket time.
+If a local skill is warranted, scaffold it at `.claude/skills/<codebase-slug>/SKILL.md` from the template at `templates/.claude/skills/codebase-skill-template/SKILL.md`. Substitutions:
+
+- `{{SKILL_NAME}}` — the `<codebase-slug>` (matches the directory name).
+- `{{SKILL_DESCRIPTION}}` — a one-sentence trigger description Claude Code uses to decide when to load the skill. Example: `Niche knowledge for the AR-graffiti-api codebase: 8th Wall SLAM gotchas, ENU coordinate conventions, the postgis/postgis:17-3.5 spinlock workaround, the AR-216 idempotent-shutdown pattern. Load before any task that touches files in /Users/khalil/Code/ar-graffiti-api or its subtree.`
+- `{{NICHE_TECH_OVERVIEW}}` — 1-3 paragraphs covering the niche tech this codebase uses. Pull from Q13 and 2b.5.
+- `{{CONVENTIONS_BULLETS}}` — list bullets of project-specific conventions (e.g. "All AR transforms use 8th Wall ENU, not Three.js Y-up — see `src/ar/coordinates.ts`").
+- `{{COMMON_GOTCHAS_BULLETS}}` — list bullets of recurring bugs / surprises a new contributor should expect.
+- `{{INTERNAL_DOCS_LINKS}}` — links to in-repo docs, ADRs, design memos relevant to this codebase.
+
+The drafted skill is **a starting point**. Tell the user: "I've drafted `<path>/SKILL.md` with what I could infer from the scan. Open it, edit anything wrong, and add the gotchas only humans know about — I can't infer 'this thing crashed prod last quarter' from a file scan."
+
+The codebase's `pm/codebases.md` entry records the path to the local skill (a new field `**Project-local skill**: .claude/skills/<codebase-slug>/SKILL.md`) so personas can find it without searching. If 2b.7 said "no, standard personas cover it", the field is empty and the codebase is owned by existing personas.
 
 #### 2b.8 — Aggregate
 
-After completing 2b.1 through 2b.7 for all codebases, you have:
+After completing 2b.1 through 2b.7a for all codebases, you have:
 
 - A list of validated codebase paths + remote URLs + base branches + user feature branches.
 - A technology inventory per codebase with doc URLs ready to inject.
 - A list of confirmed deprecation notes per codebase.
-- A list of suggested codebase-specific personas (if any).
+- A list of project-local skills drafted at `.claude/skills/<codebase-slug>/SKILL.md` (if any).
 
-Carry all of this into Step 3's synthesis. The synthesis proposal now includes the codebase entries the user will see plus any niche personas the codebase scans surfaced.
+Carry all of this into Step 3's synthesis. The synthesis proposal now includes the codebase entries the user will see, the local skills drafted, and the standard personas that own each codebase (no codebase-niche personas — niche knowledge lives in the local skills instead).
 
 ### Step 3 — Synthesize a persona proposal, MCP shortlist, skill shortlist, and codebase plan; confirm with the user
 
@@ -316,7 +336,7 @@ The **Project Manager** and **Engineering Manager** are common-but-not-universal
 
 If the user mentions a role that doesn't match any template — e.g. "Growth Lead", "Customer Success", "ML Researcher", "Data Engineer", "Security Engineer" — propose a `custom-skeleton.md`-based persona for it. Author the role paragraph + working patterns from the discovery answer rather than inventing them.
 
-If Step 2b's per-codebase scan suggested a niche persona (a codebase using a domain-specific framework that no standard persona covers), include that proposal here as well. Format: "AR Engineer — owns the 8th Wall SLAM integration and the 3D rendering pipeline in `<codebase-path>/`. Detected via the codebase scan; user confirmed in Q13 that AR work is distinct enough to warrant its own role."
+**Don't propose codebase-niche personas.** Niche codebase knowledge (8th Wall SLAM, Unity, FPGA toolchains, etc.) goes into a project-local skill at `.claude/skills/<codebase-slug>/` — see Step 2b.7a. Personas are about *roles*; skills are about *technical knowledge*. The standard personas plus the matching local skill are the right shape.
 
 #### 3b. MCP integration shortlist
 
@@ -348,6 +368,7 @@ Summarize the codebase plan from Step 2b. For each codebase, show:
 - Tech inventory bullets (one line each)
 - Deprecation candidates the user confirmed (if any)
 - Owning persona(s) — point at one or more entries from 3a
+- **Project-local skill** at `.claude/skills/<codebase-slug>/SKILL.md` if Step 2b.7 surfaced one, with a one-line description of what the drafted skill contains
 
 Example:
 
@@ -361,6 +382,11 @@ Codebase: api-server
   Deprecation: jsonwebtoken (added 2023-04) is deprecated in this project;
                jose (added 2025-08) is the active library.
   Owned by: Backend Engineer, Platform Engineer
+  Project-local skill: .claude/skills/ar-graffiti-api/SKILL.md
+    Drafted with: NestJS+Fastify cold-start budget, ZodValidationPipe
+    pinning gotcha, postgis/postgis:17-3.5 spinlock workaround, the
+    idempotent-shutdown pattern. Open it after scaffolding and add
+    anything I couldn't infer from the file scan.
 ```
 
 If the user said "none yet" in Q12, omit this subsection — the project itself is the only codebase, and its base branch is the standard `main` covered in `CLAUDE.md`.
@@ -396,7 +422,9 @@ Files **always** written (the universal subset, not persona-dependent):
 | `templates/docs/skills-registry.md` | `<project>/docs/skills-registry.md` | none |
 | `templates/docs/tech-docs-registry.md` | `<project>/docs/tech-docs-registry.md` | none |
 | `templates/docs/feature-overlap-registry.md` | `<project>/docs/feature-overlap-registry.md` | none |
-| `templates/pm/codebases.md` | `<project>/pm/codebases.md` | per-codebase: `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{REMOTE_URL}}`, `{{BASE_BRANCH}}`, `{{USER_FEATURE_BRANCH}}`, `{{SCAN_DATE}}`, `{{LANGUAGES}}`, `{{FRAMEWORKS}}`, `{{BUILD_TOOLING}}`, `{{INFRASTRUCTURE}}`, `{{OTHER_LIBRARIES}}`, `{{OWNING_PERSONAS}}`, `{{DOC_LINKS}}`, `{{DEPRECATION_NOTES}}` (all from Step 2b's scan) |
+| `templates/pm/codebases.md` | `<project>/pm/codebases.md` | per-codebase: `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{REMOTE_URL}}`, `{{BASE_BRANCH}}`, `{{USER_FEATURE_BRANCH}}`, `{{SCAN_DATE}}`, `{{LANGUAGES}}`, `{{FRAMEWORKS}}`, `{{BUILD_TOOLING}}`, `{{INFRASTRUCTURE}}`, `{{OTHER_LIBRARIES}}`, `{{OWNING_PERSONAS}}`, `{{DOC_LINKS}}`, `{{DEPRECATION_NOTES}}`, `{{LOCAL_SKILL_PATH}}` (all from Step 2b's scan) |
+| `templates/.claude/skills/README.md` | `<project>/.claude/skills/README.md` | none |
+| `templates/.claude/skills/codebase-skill-template/SKILL.md` | *(only if Step 2b.7a drafted at least one)* `<project>/.claude/skills/<codebase-slug>/SKILL.md` per codebase | `{{SKILL_NAME}}`, `{{SKILL_DESCRIPTION}}`, `{{CODEBASE_NAME}}`, `{{LOCAL_PATH}}`, `{{NICHE_TECH_OVERVIEW}}`, `{{CONVENTIONS_BULLETS}}`, `{{COMMON_GOTCHAS_BULLETS}}`, `{{INTERNAL_DOCS_LINKS}}` |
 | `templates/docs/dispatch-logs/.gitkeep` | `<project>/docs/dispatch-logs/.gitkeep` | none |
 
 Persona files written **only if** they appeared in the confirmed list from Step 3a:
@@ -601,8 +629,15 @@ Personas generated:
 
 Codebases registered:
   <for each codebase: name, local path, base branch, user's feature branch,
-   tech inventory summary, deprecation notes if any, owning personas>
+   tech inventory summary, deprecation notes if any, owning personas,
+   path to drafted local skill if any>
   (omit this section if no codebases were registered)
+
+Project-local skills drafted:
+  <list each .claude/skills/<codebase-slug>/SKILL.md the scaffold drafted,
+   with a one-line summary of what it covers and a reminder to open and
+   edit it to add human-only knowledge>
+  (omit this section if Step 2b.7 declined to draft any)
 
 Files written:
   <list every other path you wrote, with relative paths>
@@ -635,6 +670,10 @@ Memory bootstrapped:
 5. (If codebases were registered) Open pm/codebases.md and verify each entry — paths,
    base branches, user feature branches, tech inventories, deprecation notes. Anything
    the scaffold guessed wrong, edit. The owning personas have already been linked.
+5b. (If local skills were drafted) Open each .claude/skills/<codebase-slug>/SKILL.md
+   and add the human-only knowledge — recurring bugs, the thing that broke prod last
+   quarter, the gotchas you can't infer from a file scan. The drafted skill is a
+   starting point, not a finished artifact.
 6. Commit the scaffolded files: git add . && git commit -m "scaffold: agent workflow"
    Don't push yet — review the diff first.
 7. Once you've populated at least one epic and one ticket in pm/backlog.md, you can run
@@ -652,6 +691,7 @@ Stop. Do not proceed to do additional work unless the user asks.
 ## Working principles for this skill
 
 - **Discovery before generation.** Never write a persona file the user didn't confirm. Step 2 (interview) → Step 2b (codebase setup) → Step 3 (synthesis + confirmation) → Step 4 (write only what's confirmed) is the load-bearing sequence; do not collapse it.
+- **Niche codebase knowledge goes in a project-local skill, not a separate persona.** Personas describe *roles* (what someone does); skills describe *technical knowledge* (how to do the thing). When Step 2b.7 surfaces a codebase with niche tech or team-specific gotchas, the output is a draft `.claude/skills/<codebase-slug>/SKILL.md` — not a `custom-skeleton.md` persona. The standard persona that owns the codebase loads the local skill before starting work.
 - **Don't overwrite without asking.** This is the user's project — Step 1 detection is mandatory.
 - **Don't push to a referenced codebase's base branch.** Ever. Step 2b records the user's feature branch as the only acceptable PR target for each codebase. The orchestrator persona and CLAUDE.md both restate this rule because it's load-bearing for safe multi-repo work.
 - **Don't dump every file in a wall of writes.** Confirm the persona / MCP / skill / codebase plan in Step 3, then generate in Step 4 onwards. The user can interrupt.
