@@ -991,9 +991,50 @@ Add a one-line constraint to `AGENTS.md`'s `## Project-specific rules`:
 
 The skill shortlist from Step 3c is now ready to install. Unlike the previous version of this scaffold, this step is **active, not informational** — for skills the agent can install autonomously, install them with a single batched consent prompt rather than listing commands and waiting.
 
-#### 7a. Compute the install plan
+#### 7a. Validate persona frontmatter
 
-Walk the just-written persona files in `agents/` and aggregate their `required_skills:` frontmatter into a deduplicated list. Cross-reference against `<project>/docs/skills-registry.md`. For each skill, classify into one of four lanes based on the registry's `Source` field:
+Before aggregating skills, parse each persona file's YAML frontmatter explicitly. Persona files are user-editable; once a project is past day one, frontmatter drifts (added comments, hand-edited skill lists, accidental quote marks, list-vs-scalar shape mismatches). Without a validation pass, a malformed frontmatter silently drops that persona's skills from the install plan and the failure is invisible until a sub-agent dispatched on that persona reports a missing skill.
+
+For each `agents/*.md` file:
+
+1. **Read the first frontmatter block.** A valid block is fenced by `---` on its own line, opens at the top of the file, and closes before any body content. If the file doesn't open with `---`, treat it as "no frontmatter" — record this; some custom personas may legitimately not declare skills.
+2. **Parse the YAML inside.** Capture parse errors verbatim — line number, the parser's message, the offending snippet (first 10 lines of the frontmatter).
+3. **Validate the `required_skills:` shape.** It must be either:
+   - `required_skills: []` (empty list — persona declares no skill dependencies), or
+   - `required_skills:` followed by a list of one or more entries, each a string. Strings without quotes are fine (e.g. `figma:figma-use`); quoted strings are fine; mixed shapes are fine.
+   - Anything else is invalid: scalar (`required_skills: figma:figma-use`), nested map, missing field with non-default-empty intent.
+4. **Record the result** as one of: `clean`, `no-frontmatter`, `parse-error`, `wrong-shape`.
+
+After scanning all personas, emit a summary block before the consent prompt in 7b:
+
+```
+Persona frontmatter scan:
+  ✓ backend-engineer.md          — 0 skills
+  ✓ frontend-engineer.md         — 0 skills
+  ✓ orchestrator.md              — 0 skills
+  ✓ project-manager.md           — 0 skills
+  ✓ engineering-manager.md       — 0 skills
+  ✓ product-designer.md          — 5 skills (figma:figma-use, figma:figma-code-connect, …)
+  ⚠ qa-engineer.md               — frontmatter parse failed at line 3:
+       expected mapping, got scalar
+       ---
+       required_skills: claude-api      <-- should be: required_skills: [claude-api]
+       ---
+  ⚠ legal-advisor.md             — no frontmatter detected (file starts with `# Legal Advisor`)
+
+2 personas have unresolved skill declarations. Proceeding with the install plan
+for the 5 personas that parsed cleanly. Fix the unresolved entries and re-run
+this skill, or open the persona files and edit them directly — Step 7 picks up
+the changes on the next pass.
+```
+
+The user can fix the parse errors in their editor, re-run the scaffold (which re-runs Step 7), and the install plan picks up the now-clean personas. Don't block on parse errors — proceed with the personas that parsed cleanly.
+
+Carry the per-persona scan result forward to Step 9 so the summary surfaces which personas still have unresolved skill declarations.
+
+#### 7b. Compute the install plan
+
+Aggregate the `required_skills:` from cleanly-parsed personas into a deduplicated list. Cross-reference against `<project>/docs/skills-registry.md`. For each skill, classify into one of four lanes based on the registry's `Source` field:
 
 - **`auto-install: git`** — skill source is `git`. The agent can `git clone` autonomously with consent.
 - **`semi-auto: plugin`** — skill source is `plugin`. The agent prints the `/plugin install <plugin>` command for the user to run from inside Claude Code; the slash command is interactive and is not safely scriptable.
@@ -1002,7 +1043,7 @@ Walk the just-written persona files in `agents/` and aggregate their `required_s
 
 Cross-reference against the session's `<available-skills>` reminder before classifying — anything already installed should drop out of the install plan entirely.
 
-#### 7b. Auto-install the `auto-install: git` lane (with one-shot consent)
+#### 7c. Auto-install the `auto-install: git` lane (with one-shot consent)
 
 For each git-installable skill:
 
@@ -1021,7 +1062,7 @@ For each git-installable skill:
 4. **On no:** print the commands the user can run themselves later, formatted to copy-paste, and continue. Do not block on this.
 5. **For project-scoped installs**, the resulting `skills/` directory is **intentionally version-controlled**. Don't add it to `.gitignore`.
 
-#### 7c. Coach the `semi-auto: plugin` lane
+#### 7d. Coach the `semi-auto: plugin` lane
 
 For each plugin-installable skill, group by plugin namespace and emit one line per unique namespace:
 
@@ -1033,7 +1074,7 @@ Run inside Claude Code (these are slash commands, not shell):
 
 Tell the user that after `/plugin install` completes, the plugin's skill family becomes available without restarting Claude Code.
 
-#### 7d. Coach the `coach: private` lane
+#### 7e. Coach the `coach: private` lane
 
 For each private-source skill, print the persona that requires it, the registry's placeholder install command, and the line:
 
@@ -1042,7 +1083,7 @@ The canonical install URL for `<skill-name>` is private to your team.
 Substitute the URL the team uses, or ask the persona owner where to find it.
 ```
 
-#### 7e. Don't block scaffold completion on install failures
+#### 7f. Don't block scaffold completion on install failures
 
 If any auto-install fails or the user declines, the scaffold continues to Step 8. The summary in Step 9 surfaces what's still missing so the user can return to it. Reasons:
 
@@ -1050,9 +1091,9 @@ If any auto-install fails or the user declines, the scaffold continues to Step 8
 - Some skills require credentials, SSO, or paid licenses the scaffold can't provide.
 - Re-running the scaffold (or invoking the persona later) re-runs this step, so nothing falls through the cracks.
 
-#### 7f. Don't auto-install without consent — even on "obvious" cases
+#### 7g. Don't auto-install without consent — even on "obvious" cases
 
-The agent must ask before running `git clone` on the user's machine. The single batched consent prompt in 7b is the only point where it touches `~/.claude/skills/` or `skills/`. There is no implicit consent.
+The agent must ask before running `git clone` on the user's machine. The single batched consent prompt in 7c is the only point where it touches `~/.claude/skills/` or `skills/`. There is no implicit consent.
 
 ### Step 8 — Bootstrap memory
 
@@ -1155,6 +1196,11 @@ Skills:
   To install yourself: <list /plugin install commands the user must run>
   Already present: <list builtin / pre-installed skills that matched>
   Coaching needed: <list private skills with the contact / placeholder URL>
+  Unresolved: <list any persona whose frontmatter scan failed in 7a —
+              filename + scan result (parse-error / wrong-shape / no-frontmatter).
+              These personas had their skills skipped from the install plan
+              until the frontmatter is fixed and the scaffold is re-run.
+              Omit this line if all personas parsed cleanly.>
 
 Memory bootstrapped:
   <list the memory entries seeded, including user-role-profile.md>
