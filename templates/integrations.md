@@ -118,21 +118,15 @@ Add to this matrix sparingly.
 
 ## How the scaffold wires this up
 
-When the user invokes `/agent-workflow-scaffold`, **Step 4** (project-specific follow-ups) includes integration questions:
+When the user invokes `/agent-workflow-scaffold`, the discovery interview (Step 2) gathers the team's PM-tool source of truth (Q9a) and other active tools (Q9b — Slack, Figma, etc.). Step 3b synthesizes a shortlist of vendor-official MCPs to propose for confirmation.
 
-```
-Does the team use Linear for ticket tracking? (Y/n)
-Does the team use Jira / Confluence (Atlassian)? (Y/n)
-Does the team use Notion? (Y/n)
-Does the team use Slack for engineering coordination? (Y/n)
-Does the team use Figma? (Y/n)
-```
+For each MCP the user confirms, **Step 6** writes:
 
-For each "yes," the skill writes:
-
-1. An entry in `.mcp.example.json` at the repo root — the **example** file is checked in; users copy to `.mcp.json` (gitignored) and authenticate.
-2. A note in `agents/orchestrator.md`'s "Repository context" section so the orchestrator knows to use it.
+1. An `_enabled: true` entry in `.mcp.example.json` at the repo root — the **example** file is checked in; users copy to `.mcp.json` (gitignored) and authenticate via OAuth on first use.
+2. A note in `agents/orchestrator.md`'s "Repository context" section so the orchestrator knows the integration is wired.
 3. A line in the `Project-specific rules` section of `AGENTS.md` if the integration affects coding rules (e.g., "PR description must include the Linear issue ID").
+
+For PM tools, **Step 5b** also drafts a project-local skill at `skills/pm-<tool>-<project-slug>/SKILL.md` that captures workspace + label conventions and adds two PM-specific rules to `AGENTS.md` (PM tool is source of truth; PR titles must include the issue prefix).
 
 The `.mcp.example.json` template ships with the skill at `templates/mcp.example.json`.
 
