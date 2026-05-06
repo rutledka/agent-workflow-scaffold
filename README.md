@@ -78,7 +78,7 @@ The skill is **discovery-driven**. It does not generate a fixed set of personas 
    - **Plugin skills** → coach you through `/plugin install <plugin>` from inside Claude Code (slash commands aren't safely scriptable).
    - **Built-in skills** → already installed; nothing to do.
    - **Private skills** → print the placeholder install URL and tell you to substitute the team's URL.
-9. **Bootstrap memory** — six starter entries: workflow conventions (worktree+PR discipline, worktrees-not-siblings, document version+history, decisions-via-ADR, prefer-concrete-comparisons) plus a `user-role-profile.md` derived from your discovery answers, so future scaffold runs (in other projects) can suggest personas faster.
+9. **Bootstrap memory** — seven starter entries: workflow conventions (worktree+PR discipline, worktrees-not-siblings, document version+history, decisions-via-ADR, sub-agent write permissions, prefer-concrete-comparisons) plus a `user-role-profile.md` derived from your discovery answers, so future scaffold runs (in other projects) can suggest personas faster.
 10. **Print a summary** — personas generated, codebases registered, files written, MCPs enabled, skills installed / pending / coaching-needed, and next steps.
 
 Re-running the skill on the same project re-detects existing files, **re-runs the codebase scans** (catching new lockfile entries and new deprecation candidates), and asks before overwriting — so it's safe to run again after a major project pivot or after adding a new codebase.
@@ -163,6 +163,7 @@ Plus user-scoped memory at `~/.claude/projects/<your-project-slug>/memory/`:
 - `feedback-worktrees-not-siblings.md`
 - `feedback-document-version-history.md`
 - `feedback-decisions-via-adr.md`
+- `feedback-subagent-write-permissions.md`
 - `user-prefer-concrete-comparisons.md`
 
 ---

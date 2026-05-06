@@ -161,6 +161,16 @@ For each dispatch job from Step 3, start a Claude Code sub-agent session using t
 6. Push and open a PR with `gh pr create` — this is the final required step.
 7. Report the PR URL.
 
+#### Sub-agent write permissions — the orchestrating pattern
+
+On many Claude Code harnesses today, sub-agents launched with `isolation: "worktree"` cannot write files — the harness creates the isolated worktree but denies the sub-agent's `Write` and `Edit` tool calls. The sub-agent reports "done" but no files actually land. The pattern that works in practice:
+
+- **Main session authors files; sub-agents do read-only research.** Dispatch sub-agents for research, search, code analysis, file inspection, and synthesis. Take their structured report back into the main session, and have the main session apply the changes via `Write`/`Edit` tools — committing, pushing, and opening the PR from the main session's worktree.
+- **If you must let a sub-agent write**, dispatch it without `isolation: "worktree"` so it operates in the same worktree as the main session. Be aware of the risk of conflicting writes; serialize dispatches that touch the same files.
+- **Verify before reporting done.** A sub-agent's "successful" return doesn't mean files were written. After every dispatch, run `git status` / `git diff --stat` from the main session and confirm the expected changes are present before moving to the next dispatch job. If the worktree is empty, the dispatch silently failed — re-do it from the main session.
+
+This is the single most common dispatch failure mode and the most invisible. Build the verify step into every dispatch cycle.
+
 ### Step 5 — Write dispatch report and open a PR
 
 After all sub-agents are dispatched, write the dispatch report as a Markdown file and commit it via pull request.

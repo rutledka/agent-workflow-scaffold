@@ -54,6 +54,15 @@ The scaffolded project may reference one or more **external codebases** at paths
 
 This rule does **not** apply to the project where this `AGENTS.md` lives — that one's git workflow uses `main` (or whatever the default branch is) as the PR target, per the previous section.
 
+### Rule: Dispatching sub-agents
+
+Sub-agents in Claude Code's `isolation: "worktree"` mode typically cannot write files — the harness denies their `Write`/`Edit` calls. When orchestrating:
+
+- **Author files from the main session; delegate read-only research to sub-agents.** Sub-agents are good at search, analysis, file inspection, and synthesis — but the main session does the actual writes, commits, and PRs.
+- **Verify after every dispatch** with `git status` / `git diff --stat` from the main session. A sub-agent's "done" report doesn't mean files were written; an empty diff means the dispatch silently failed and needs to re-run from the main session.
+
+See `agents/orchestrator.md` "Step 4 — Dispatch sub-agents" for the full pattern.
+
 ### Commit message style
 - Imperative mood: `add`, `fix`, `refactor`, `remove` — not `added`, `fixed`.
 - Reference epic/ticket IDs where applicable: `EPIC-03-T02: integrate login flow`.
