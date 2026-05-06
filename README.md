@@ -165,6 +165,8 @@ Plus user-scoped memory at `~/.claude/projects/<your-project-slug>/memory/`:
 - `feedback-decisions-via-adr.md`
 - `feedback-subagent-write-permissions.md`
 - `user-prefer-concrete-comparisons.md`
+- `user-role-profile.md` — generated from your discovery answers; portable across projects
+- `personal-assistant-context.md` — only if the Personal Assistant persona was confirmed in Step 3
 
 ---
 
