@@ -80,6 +80,7 @@ templates/
     ├── feedback-worktree-pr-discipline.md
     ├── feedback-document-version-history.md
     ├── feedback-decisions-via-adr.md
+    ├── feedback-subagent-write-permissions.md
     ├── user-prefer-concrete-comparisons.md
     └── personal-assistant-context.md  # private user memory for the Personal Assistant
                                        # persona; only seeded if persona is confirmed
@@ -1019,6 +1020,7 @@ Starter entries to seed (read each from `templates/memory/` and copy verbatim, n
 | `feedback-worktrees-not-siblings.md` | feedback | Worktrees go inside `.worktrees/`, not as a sibling of the repo |
 | `feedback-document-version-history.md` | feedback | Every doc has a version + history table at the bottom |
 | `feedback-decisions-via-adr.md` | feedback | Load-bearing decisions go to `docs/adr/`, not chat |
+| `feedback-subagent-write-permissions.md` | feedback | Sub-agents in `isolation: "worktree"` typically cannot write files; the orchestrator's main session must author files and delegate only read-only research to sub-agents |
 | `user-prefer-concrete-comparisons.md` | user | When the user asks "should we use X?", offer a comparison table, not just a yes/no |
 
 Plus a **role profile** memory entry, generated from the discovery answers so future scaffold runs (in other projects) can suggest personas faster:
@@ -1035,7 +1037,7 @@ Plus, **only if the Personal Assistant persona was confirmed in 3a**, seed its p
 |---|---|---|
 | `personal-assistant-context.md` | user | Read template at `templates/memory/personal-assistant-context.md` and copy verbatim. The file ships with seed sections (Working preferences / People in their orbit / Recurring personal context / Communication-source filters / Never-assignable goal categories / Trust history) populated with examples — the user fills them in over the first few sessions. The persona reads this file at every session start and updates it as it learns. |
 
-Update `MEMORY.md` to list six entries (or seven if Personal Assistant was confirmed) with one-line descriptions.
+Update `MEMORY.md` to list seven entries (or eight if Personal Assistant was confirmed) with one-line descriptions.
 
 ### Step 9 — Print next-step instructions to the user
 
