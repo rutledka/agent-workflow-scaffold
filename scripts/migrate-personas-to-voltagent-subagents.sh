@@ -74,8 +74,8 @@ done
 # Sanity checks
 # ---------------------------------------------------------------------------
 
-if [[ ! -d ".git" ]]; then
-  echo "ERROR: run this from the project root (no .git/ found here)." >&2
+if [[ ! -e ".git" ]]; then
+  echo "ERROR: run this from the project root (no .git found here)." >&2
   exit 1
 fi
 
@@ -128,6 +128,7 @@ declare -a TO_MIGRATE=()       # persona file paths needing append
 declare -a CUSTOM_MANUAL=()    # custom personas the user must edit themselves
 declare -a ALREADY_MIGRATED=() # skip
 need_registry_copy=false
+need_agents_md_rule=false
 
 for persona in agents/*.md; do
   [[ -e "$persona" ]] || continue
@@ -144,6 +145,10 @@ done
 
 if [[ ! -f "docs/subagents-registry.md" ]]; then
   need_registry_copy=true
+fi
+
+if [[ -f AGENTS.md ]] && ! grep -q 'Rule: Brief sub-agents with persona context' AGENTS.md; then
+  need_agents_md_rule=true
 fi
 
 # ---------------------------------------------------------------------------
@@ -171,8 +176,12 @@ if $need_registry_copy; then
   echo "  Will create: docs/subagents-registry.md (from template)"
   echo
 fi
+if $need_agents_md_rule; then
+  echo "  Will append: 'Rule: Brief sub-agents with persona context' to AGENTS.md"
+  echo
+fi
 
-if (( ${#TO_MIGRATE[@]} == 0 )) && ! $need_registry_copy; then
+if (( ${#TO_MIGRATE[@]} == 0 )) && ! $need_registry_copy && ! $need_agents_md_rule; then
   echo "Nothing to migrate. Exiting."
   exit 0
 fi
@@ -207,6 +216,28 @@ if $need_registry_copy; then
   git add docs/subagents-registry.md
   git commit -m "migrate: add docs/subagents-registry.md from scaffold template" >/dev/null
   echo "  ✓ created docs/subagents-registry.md"
+fi
+
+if $need_agents_md_rule; then
+  # Extract the "Rule: Brief sub-agents with persona context" section from
+  # the scaffold's AGENTS.md template (between its heading and the next ###
+  # heading) and append to the user's AGENTS.md.
+  briefing_section="$(awk '
+    /^### Rule: Brief sub-agents with persona context$/{flag=1}
+    flag && /^### / && !/^### Rule: Brief sub-agents with persona context$/ {flag=0}
+    flag
+  ' "$SCAFFOLD_ROOT/templates/AGENTS.md")"
+  if [[ -n "$briefing_section" ]]; then
+    {
+      echo
+      echo "$briefing_section"
+    } >> AGENTS.md
+    git add AGENTS.md
+    git commit -m "migrate: append 'Rule: Brief sub-agents with persona context' to AGENTS.md" >/dev/null
+    echo "  ✓ appended Rule: Brief sub-agents with persona context to AGENTS.md"
+  else
+    echo "  ✗ briefing-rule section not found in $SCAFFOLD_ROOT/templates/AGENTS.md (skipping AGENTS.md update)" >&2
+  fi
 fi
 
 for persona in "${TO_MIGRATE[@]}"; do

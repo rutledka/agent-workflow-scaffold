@@ -122,6 +122,7 @@ Run these detectors **in order**, recording each as `current` (no drift) or `leg
 | D9 | Missing `templates/memory/feedback-subagent-write-permissions.md`-equivalent in user memory | check whether `feedback-subagent-write-permissions.md` is in the user's memory dir for this project | Seed the memory file (Step 8 mechanism). |
 | D10 | Missing `docs/subagents-registry.md` | `[ ! -f docs/subagents-registry.md ]` | Copy from `templates/docs/subagents-registry.md`. |
 | D11 | `agents/*.md` files missing the `## Available sub-agents for delegation` section | `for f in agents/*.md; do grep -q '^## Available sub-agents for delegation' "$f" \|\| echo "$f"; done` (any output → drift) | For each persona file lacking the section, append the appropriate Available-sub-agents block. For off-the-shelf personas (filenames matching `backend-engineer.md`, `frontend-engineer.md`, etc.), copy the section from the matching `templates/agents/<name>.md`. For custom personas (any other filename), match the persona's role description against the keyword index in `docs/subagents-registry.md` (Step 4b's logic) and render a best-guess section the user can edit. The migration script at `scripts/migrate-personas-to-voltagent-subagents.sh` (in the scaffold repo) implements this same logic for users who want to run it standalone — see "Standalone migration" below. |
+| D12 | Missing AGENTS.md "Rule: Brief sub-agents with persona context" section | `! grep -q 'Rule: Brief sub-agents with persona context' AGENTS.md 2>/dev/null` (after D1 if applicable) | Insert the rule after "Rule: Dispatching sub-agents" in `AGENTS.md`. The rule defines the briefing protocol every persona references in its **Available sub-agents** section. Without it, the per-persona references point to a section that doesn't exist locally. |
 
 #### Surface the drift report
 
@@ -742,10 +743,21 @@ For each `custom-skeleton.md`-based persona:
 
 1. Take the user's role description (Step 2 Q1 + Q3) plus the role title (Q1) and any specialty workflows (Q10).
 2. Match those against the **keyword index** at the bottom of `templates/docs/subagents-registry.md`. Each keyword row maps to one or more recommended plugins and top matching sub-agents.
-3. Render the matched plugins + sub-agents as a bullet list using the same shape as the off-the-shelf personas:
+3. Render the matched plugins + sub-agents using the same shape as the off-the-shelf personas (intro paragraph → role-level decisions → sub-agents list):
 
    ```markdown
-   When work calls for deep technology specialization, dispatch the relevant sub-agent from the [VoltAgent](https://github.com/VoltAgent/awesome-claude-code-subagents) plugin set:
+   When work calls for deep technology specialization, dispatch the relevant sub-agent from the [VoltAgent](https://github.com/VoltAgent/awesome-claude-code-subagents) plugin set. **You make the role-level decisions and write the dispatch brief; the sub-agent handles the technical depth.** See `AGENTS.md` "Rule: Brief sub-agents with persona context" for the briefing protocol.
+
+   ### Role-level decisions you keep — never delegate
+
+   *(infer from the user's discovery answers — what does this role uniquely decide vs. what could be delegated? Surface 4–7 bullets covering the persona's core scope. If the role description is too sparse to infer specifics, leave a placeholder telling the user to fill these in by reviewing the off-the-shelf personas as examples.)*
+
+   - {{ROLE_LEVEL_DECISION_1}}
+   - {{ROLE_LEVEL_DECISION_2}}
+   - …
+   - **Findings from prior dispatches.** Repeat insights across briefs so the sub-agent doesn't re-derive them.
+
+   ### Sub-agents available
 
    - **`<sub-agent-name>`** (`<plugin-name>`) — <one-line description>
    - **`<sub-agent-name>`** (`<plugin-name>`) — <one-line description>
@@ -754,13 +766,13 @@ For each `custom-skeleton.md`-based persona:
    Install the plugin(s) via `claude plugin install <plugin> [<plugin>…]` (after a one-time `claude plugin marketplace add VoltAgent/awesome-claude-code-subagents`). See [`docs/subagents-registry.md`](../docs/subagents-registry.md) for the full mapping.
    ```
 
-4. If no keyword matches the role (an unusual / one-off role), render a fallback section:
+4. If no keyword matches the role (an unusual / one-off role), render a fallback section that still names the briefing rule:
 
    ```markdown
-   No off-the-shelf sub-agents in the [VoltAgent](https://github.com/VoltAgent/awesome-claude-code-subagents) marketplace match this persona's role directly. See [`docs/subagents-registry.md`](../docs/subagents-registry.md) — if any of the listed sub-agents apply, edit this section to reference them. Otherwise this persona operates without a delegation lane.
+   No off-the-shelf sub-agents in the [VoltAgent](https://github.com/VoltAgent/awesome-claude-code-subagents) marketplace match this persona's role directly. See [`docs/subagents-registry.md`](../docs/subagents-registry.md) — if any of the listed sub-agents apply, edit this section to reference them. If you do dispatch sub-agents, follow `AGENTS.md` "Rule: Brief sub-agents with persona context" — surface the role-level decisions, project context, and prior findings in every dispatch brief.
    ```
 
-5. Substitute the rendered content for `{{SUBAGENT_SECTION}}` in the rendered persona file. The retained boilerplate ("the scaffold injected the sub-agent recommendations above…") stays so the user knows the section is editable.
+5. Substitute the rendered content for `{{SUBAGENT_SECTION}}` in the rendered persona file. The retained boilerplate ("the scaffold injected the sub-agent recommendations above…") stays so the user knows the section is editable. The role-level-decisions list is the most valuable thing for the user to refine — encourage it explicitly in the post-scaffold "Next steps" summary.
 
 #### Step 4a — Create platform-compatibility symlinks and configs
 
