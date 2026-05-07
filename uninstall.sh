@@ -21,8 +21,6 @@
 #   --keep-personas      Don't touch agents/.
 #   --keep-mcp           Don't touch .mcp.example.json / .mcp.json.
 #   --keep-claude-md     Don't touch AGENTS.md / CLAUDE.md.
-#   --keep-learning-opp  Don't touch the learning-opportunities cadence hook
-#                        at .claude/hooks/learning-opportunities-cadence.sh.
 #   --remove-memory      Also remove the user-scoped memory entries at
 #                        ~/.claude/projects/<slug>/memory/. Off by default —
 #                        memory is user data, not project artifact.
@@ -53,7 +51,6 @@ keep_skills=false
 keep_personas=false
 keep_mcp=false
 keep_claude_md=false
-keep_learning_opp=false
 remove_memory=false
 no_pr=false
 auto_yes=false
@@ -67,7 +64,6 @@ while [[ $# -gt 0 ]]; do
     --keep-personas)   keep_personas=true;  shift ;;
     --keep-mcp)        keep_mcp=true;       shift ;;
     --keep-claude-md)  keep_claude_md=true; shift ;;
-    --keep-learning-opp) keep_learning_opp=true; shift ;;
     --remove-memory)   remove_memory=true;  shift ;;
     --no-pr)           no_pr=true;          shift ;;
     --yes)             auto_yes=true;       shift ;;
@@ -161,16 +157,6 @@ fi
 # Per-tool wiring (always removed with --keep-claude-md=false; harmless symlinks)
 if ! $keep_claude_md; then
   [[ -L .github/copilot-instructions.md ]] && PATHS_TO_REMOVE+=(".github/copilot-instructions.md")
-fi
-
-# Learning-opportunities cadence hook (Step 7i artifact). The .claude/settings.json
-# entry pointing at the script is left for the user to clean manually — JSON edit
-# is fragile and the dangling reference is harmless once the script is gone.
-if ! $keep_learning_opp; then
-  [[ -f .claude/hooks/learning-opportunities-cadence.sh ]] && PATHS_TO_REMOVE+=(".claude/hooks/learning-opportunities-cadence.sh")
-  if [[ -d .claude/hooks ]]; then
-    LEARNING_OPP_NOTE="If .claude/settings.json registers .claude/hooks/learning-opportunities-cadence.sh under hooks.UserPromptSubmit, remove the entry manually — the script is being deleted but the JSON edit is left for you."
-  fi
 fi
 
 # Memory entries (opt-in)
@@ -341,12 +327,6 @@ if (( ${#CLAUDE_MD_RESTORE_NOTE[@]} > 0 )); then
 
 Note: a preserved CLAUDE.md merge delimiter was detected in AGENTS.md; the original CLAUDE.md content was restored as a regular file before AGENTS.md was removed. Verify this in the diff."
 fi
-learning_opp_md=""
-if [[ -n "${LEARNING_OPP_NOTE:-}" ]]; then
-  learning_opp_md="
-
-Note: $LEARNING_OPP_NOTE"
-fi
 
 body_file="$(mktemp -t uninstall-pr-body.XXXXXX)"
 {
@@ -358,7 +338,6 @@ body_file="$(mktemp -t uninstall-pr-body.XXXXXX)"
   echo
   echo "$paths_md"
   if [[ -n "$restore_md" ]]; then echo "$restore_md"; fi
-  if [[ -n "$learning_opp_md" ]]; then echo "$learning_opp_md"; fi
   if [[ -n "$memory_md" ]]; then echo "$memory_md"; fi
   echo
   echo "Not touched:"
