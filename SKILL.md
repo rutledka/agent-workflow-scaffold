@@ -280,6 +280,20 @@ About your AI coding tools:
       - Aider
       - Continue
       - Other (specify; scaffold will document but not auto-wire)
+
+About reinforcing what you learn from the work:
+15) Do you want to install the `learning-opportunities` skill?
+    The skill (https://github.com/DrCatHicks/learning-opportunities)
+    offers 10-15 minute deliberate-practice exercises after architectural
+    work — prediction, generation, retrieval, teach-back. It builds your
+    expertise alongside the agents instead of letting them carry it for
+    you. The skill triggers itself on its own evidence-based conditions
+    (significant architectural work; capped at 2 exercises per session;
+    respects any earlier "no") — the scaffold doesn't add a clock or
+    override the skill's rhythm.
+
+      - Yes
+      - No
 ```
 
 Wait for answers before doing anything else. If the user gives a partial answer — e.g. only items 1, 3, 6, 7, 12 — that's fine; proceed with what you have and infer rather than re-asking.
@@ -1444,6 +1458,29 @@ Re-running the scaffold reads the registry fresh, recomputes the plugin set agai
 
 The user decides whether to install the new ones or uninstall the old ones; the scaffold doesn't auto-uninstall.
 
+#### 7i. Learning opportunities skill (Q15)
+
+If Q15 was "no," skip this sub-section entirely. If yes, coach the upstream marketplace plugin install — same default-NO consent shape as 7h.2.
+
+```
+Learning opportunities skill (Q15):
+
+  Marketplace (one-time, if not already added):
+    claude plugin marketplace add DrCatHicks/learning-opportunities
+
+  Plugin to install:
+    claude plugin install learning-opportunities@learning-opportunities
+
+  Optional companion (post-commit hook from the same upstream):
+    claude plugin install learning-opportunities-auto@learning-opportunities
+
+Run them now? (Y/n) [defaults to NO — skip]
+```
+
+Default is **NO** for the same reasons as 7h.2 (marketplace plugins persist user-globally, `claude` CLI may not be authenticated yet). On `Y`: run each via Bash, treating "marketplace already added" / "plugin already installed" as harmless. On `N` or skipped: print the commands to copy-paste and surface them in Step 9's summary.
+
+The scaffold does **not** add a clock-based hook, a settings.json entry, or a user-memory cadence file. The skill triggers itself on its own evidence-based conditions (significant architectural work; capped at 2 exercises per session; respects any earlier "no") and the optional `learning-opportunities-auto` companion adds a post-commit hook from the same upstream. Layering a custom cadence on top would override the skill author's rhythm — don't.
+
 ### Step 8 — Bootstrap memory
 
 Memory paths are user-scoped, not repo-scoped. They live at:
@@ -1590,6 +1627,17 @@ VoltAgent sub-agent plugins (from Step 7h):
   (omit this section entirely if no personas had recommended plugins,
    e.g. a solo Personal-Assistant-only project)
 
+Learning opportunities (from Step 7i):
+  Plugin:    <one of:
+                "installed (claude plugin install learning-opportunities@learning-opportunities)"
+                "to install yourself: claude plugin marketplace add DrCatHicks/learning-opportunities
+                                      claude plugin install learning-opportunities@learning-opportunities"
+                "already installed">
+  Triggers on the skill's own evidence-based conditions (post-architectural-work,
+  capped at 2/session). Optional `learning-opportunities-auto` plugin from the same
+  upstream adds a post-commit hook.
+  (omit this section entirely if Q15 was "no")
+
 Memory bootstrapped:
   <list the memory entries seeded, including user-role-profile.md>
 
@@ -1637,6 +1685,7 @@ Stop. Do not proceed to do additional work unless the user asks.
 - **Don't dump every file in a wall of writes.** Confirm the persona / MCP / skill / codebase plan in Step 3, then generate in Step 4 onwards. The user can interrupt.
 - **Don't add rules to AGENTS.md that the user didn't agree to.** Step 5's questions matter — silent additions break trust. The exception is the multi-codebase PR rules in Step 5: those are tied to the codebases the user already confirmed in Step 3, so they're not silent.
 - **Active install, but consent-gated.** Step 7 actively `git clone`s skills the agent can install — but never without one explicit batched yes. Plugin installs (`/plugin install`) and OAuth flows are user-driven and the agent only coaches. Step 2b's `git checkout -b` for the user's feature branch is the same shape — ask first, run second.
+- **Don't override an upstream skill's native rhythm.** When Step 7i installs the `learning-opportunities` skill, the scaffold coaches the marketplace add and stops there. No clock-based hook, no settings.json edit, no user-memory cadence file — the skill triggers itself on its own evidence-based conditions (architectural work, 2-per-session cap, declined-offer suppression) and the optional `learning-opportunities-auto` companion handles post-commit. Layering a custom cadence on top would override the skill author's deliberate-practice rhythm.
 - **Don't substitute placeholders blindly.** If the user said "none" for the GitHub repo, comment out the GitHub-specific lines in `orchestrator.md` rather than leaving "none/none" in there. Same for `custom-skeleton.md`'s `{{PERSONA_*}}` placeholders and `codebases.md`'s `{{LOCAL_PATH}}` etc. — fill them with the discovery answers, don't ship literal `{{}}` to disk.
 - **Read the templates fresh each invocation.** Templates may have been updated since the last time the skill was run; don't cache.
 - **A re-run revisits the discovery and the codebase scans.** If the user re-invokes this skill on the same project — even one with existing personas and codebases — re-ask Step 2 briefly and re-run Step 2b's scans against the registered codebase paths so the proposal reflects changes (new role added, tool stack changed, new lockfile, new deprecation candidate).
