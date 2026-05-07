@@ -5,6 +5,39 @@ All notable changes to `agent-workflow-scaffold` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-05-06
+
+Three feature merges land on top of v1.0.0: a safer `AGENTS.md` write path, a VoltAgent sub-agents integration that stacks technology specialization on top of role-based personas, and a symmetric `uninstall.sh`.
+
+### AGENTS.md is a merge, not an overwrite
+
+- **Step 4 detects pre-existing user content and merges instead of clobbering.** When the project has a hand-authored `CLAUDE.md` (or `AGENTS.md`) without the scaffold's anchors, Step 4 renders the template's universal sections first and appends the user's content verbatim under a `## Existing project rules (preserved from CLAUDE.md)` delimiter. Nothing is reformatted, reordered, or deleted.
+- **Idempotent on re-run.** If the file already has all four scaffold anchors, Step 4 leaves it untouched.
+- **Step 1 detection** now triggers on `CLAUDE.md` alone (a project with only `CLAUDE.md` and nothing else hits the same Step 1.5 migration path).
+- **Step 9 summary** always prints an `AGENTS.md merge:` line stating which path was taken (merged / fresh / left untouched).
+- **New working principle:** "Never overwrite the user's CLAUDE.md / AGENTS.md content; merge."
+
+### VoltAgent sub-agents integration
+
+- **Two-layer model.** Personas describe **roles** (Backend Engineer, QA Engineer); sub-agents describe **technology specializations** (`python-pro`, `kubernetes-specialist`, `accessibility-tester`). The layers stack — a custom-skeleton persona for "Python Engineer" is the wrong shape; the answer is Backend Engineer + the `python-pro` sub-agent.
+- **`docs/subagents-registry.md`** — canonical persona-to-plugin mapping with primary plugins (always relevant) and conditional plugins (stack-dependent), plus a keyword index for custom-skeleton matching.
+- **Per-persona "Available sub-agents for delegation" section** in all 11 off-the-shelf templates; `custom-skeleton.md` uses a `{{SUBAGENT_SECTION}}` placeholder that Step 4b fills via the registry's keyword index. Personal Assistant intentionally has no primary plugin (its scope is email + comms, not delegation).
+- **Step 3 sub-section 3c-sub** proposes primary + conditional plugins per confirmed persona during the discovery interview.
+- **Step 7h** coaches the install with a default-NO consent prompt (marketplace plugins are user-globally persistent and `claude` CLI plugin auth may not be set up at scaffold time) and runs the marketplace-add + plugin-install in a single batch.
+- **Step 9 summary** gains a VoltAgent plugins section (installed / to install / already present).
+
+### Migration to v1.1 for existing scaffolded projects
+
+- **Step 1.5 D10 + D11** — drift detectors for missing `docs/subagents-registry.md` and personas without the Available-sub-agents section. Re-running the scaffold migrates inside a worktree-and-PR with one commit per persona.
+- **`scripts/migrate-personas-to-voltagent-subagents.sh`** — standalone one-shot bash equivalent for users who'd rather not re-run the full scaffold. Same logic as D10 + D11. Idempotent. Flags: `--no-pr`, `--dry-run`, `--help`.
+
+### Uninstall
+
+- **`uninstall.sh`** — symmetric to `install.sh`. Removes scaffold-written paths (`agents/`, `pm/`, the four registry docs, `docs/integrations.md`, `docs/dispatch-logs/`, `docs/adr/0000-template.md`, `skills/`, `.claude/skills` symlink, `.mcp.example.json` / `.mcp.json`, `AGENTS.md` + `CLAUDE.md` symlink). Lists what it would remove, asks once, runs in a worktree, opens a PR.
+- **Preserves load-bearing content.** ADR records (`docs/adr/00NN-*.md`), hand-authored docs outside the scaffold's known set, `.gitignore` additions, `.env` content, and `.aider.conf.yml` (its `read: AGENTS.md` line is surfaced for manual cleanup, not auto-removed) all stay.
+- **CLAUDE.md merge restoration.** When `AGENTS.md` carries the v1.1 merge delimiter, the uninstall extracts the user's preserved content back into a real `CLAUDE.md` before removing `AGENTS.md` — clean undo.
+- **Granular flags:** `--dry-run`, `--keep-pm`, `--keep-docs`, `--keep-skills`, `--keep-personas`, `--keep-mcp`, `--keep-claude-md`, `--remove-memory`, `--no-pr`, `--yes`.
+
 ## [1.0.0] — 2026-05-06
 
 First public release. The scaffold is a Claude Code skill that drops a multi-agent project workflow into any new or existing repository — agent personas, PM artifacts, ADRs, dispatch logs, registries, and bootstrapped user memory — through a single discovery-driven invocation.
@@ -68,4 +101,5 @@ First public release. The scaffold is a Claude Code skill that drops a multi-age
 - `install.sh` — convenience installer. User-scoped (`~/.claude/skills/agent-workflow-scaffold`) or project-scoped (`skills/agent-workflow-scaffold` + `.claude/skills → ../skills` symlink); SSH with HTTPS fallback.
 - Three install paths documented in `README.md`: user-scoped clone, project-scoped submodule, project-scoped curl-tarball.
 
+[1.1.0]: https://github.com/rutledka/agent-workflow-scaffold/releases/tag/v1.1.0
 [1.0.0]: https://github.com/rutledka/agent-workflow-scaffold/releases/tag/v1.0.0
