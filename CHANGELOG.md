@@ -5,6 +5,20 @@ All notable changes to `agent-workflow-scaffold` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-05-07
+
+Adds an opt-in for the [`learning-opportunities`](https://github.com/DrCatHicks/learning-opportunities) skill so users can reinforce their own understanding of the work the agents are facilitating. Deliberately minimal: the scaffold introduces the skill and stops — the skill's own evidence-based trigger logic stays authoritative.
+
+### Learning opportunities
+
+- **Q15 opt-in in the discovery interview.** Step 2 grows a binary yes/no question about installing the `learning-opportunities` skill — 10–15 minute deliberate-practice exercises (prediction, generation, retrieval, teach-back) offered after architectural work.
+- **Step 7i coaches the marketplace install.** When Q15 = yes, the scaffold prints the `claude plugin marketplace add DrCatHicks/learning-opportunities` and `claude plugin install learning-opportunities@learning-opportunities` commands with a default-NO consent prompt (same shape as 7h.2 — `claude` CLI plugin auth may not be set up at scaffold time). Surfaces the optional `learning-opportunities-auto` companion plugin (post-commit hook from the same upstream).
+- **Step 9 summary** gains a "Learning opportunities" section reporting installed / to install / already installed.
+
+### Working principle
+
+- **Don't override an upstream skill's native rhythm.** The scaffold installs `learning-opportunities` and stops. No clock-based hook, no `.claude/settings.json` edit, no user-memory cadence file. The skill triggers itself on its own conditions (significant architectural work, capped at 2 exercises per session, respects an earlier "no") and the optional `-auto` companion handles post-commit. Layering a custom cadence on top would override the skill author's deliberate-practice rhythm.
+
 ## [1.1.0] — 2026-05-06
 
 Three feature merges land on top of v1.0.0: a safer `AGENTS.md` write path, a VoltAgent sub-agents integration that stacks technology specialization on top of role-based personas, and a symmetric `uninstall.sh`.
@@ -101,5 +115,6 @@ First public release. The scaffold is a Claude Code skill that drops a multi-age
 - `install.sh` — convenience installer. User-scoped (`~/.claude/skills/agent-workflow-scaffold`) or project-scoped (`skills/agent-workflow-scaffold` + `.claude/skills → ../skills` symlink); SSH with HTTPS fallback.
 - Three install paths documented in `README.md`: user-scoped clone, project-scoped submodule, project-scoped curl-tarball.
 
+[1.2.0]: https://github.com/rutledka/agent-workflow-scaffold/releases/tag/v1.2.0
 [1.1.0]: https://github.com/rutledka/agent-workflow-scaffold/releases/tag/v1.1.0
 [1.0.0]: https://github.com/rutledka/agent-workflow-scaffold/releases/tag/v1.0.0
