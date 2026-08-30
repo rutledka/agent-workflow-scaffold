@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orchestration/schemas/qa-verdict.json",
+  "title": "QaVerdict",
+  "description": "The evaluator persona's structured merge verdict. Posted as a PR comment: a human-readable summary above, this JSON in a fenced ```json block below. scripts/qa-merge.sh refuses to merge without a valid one matching the PR's current head SHA. Replaces the free-form magic-phrase sign-off: deterministic-gate fields are filled from CI output (the persona does not get to type \"tests pass\"), and the verdict is computed — any deterministic-gate fail means blocked, regardless of judgment.",
+  "type": "object",
+  "required": ["pr", "ticket", "author_persona", "head_sha", "evaluator", "gates", "verdict"],
+  "additionalProperties": false,
+  "properties": {
+    "pr": { "type": "integer", "description": "PR number this verdict applies to." },
+    "ticket": { "type": "string", "description": "Ticket ID the PR implements." },
+    "author_persona": {
+      "type": "string",
+      "description": "Persona slug that authored the PR (inferred from branch prefix). Must NOT equal the evaluator persona — no self-merge, structurally."
+    },
+    "head_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$",
+      "description": "The exact commit this verdict evaluated. qa-merge.sh rejects the verdict if the PR head has moved — a stale green does not count."
+    },
+    "evaluator": {
+      "type": "object",
+      "required": ["persona"],
+      "additionalProperties": false,
+      "properties": {
+        "persona": { "type": "string", "description": "The evaluator persona slug (role: evaluator in graph.yaml)." },
+        "judge_model_family": {
+          "type": ["string", "null"],
+          "description": "Model family of the rung-3 LLM judge, if one ran. Must differ from the authoring model's family — self-preference bias is measured, not hypothetical."
+        }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "description": "Gate name from graph.yaml, or acceptance_criteria_review for the rung-3 judge." },
+          "status": { "type": "string", "enum": ["pass", "fail", "not_applicable", "deferred"] },
+          "detail": { "type": ["string", "null"] },
+          "reason": { "type": ["string", "null"], "description": "REQUIRED when status is deferred. Deferral is not a free action." },
+          "followup": { "type": ["string", "null"], "description": "Ticket ID tracking the deferred check. Required for deferred unless reason establishes not-applicability." },
+          "rung": { "type": "integer", "enum": [1, 2, 3], "description": "1 = deterministic test/build, 2 = policy lint, 3 = LLM judge. Rung 3 never gates alone." },
+          "judge_confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "status": { "const": "deferred" } } },
+            "then": { "required": ["name", "status", "reason"] }
+          }
+        ]
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["ready_to_merge", "blocked"],
+      "description": "Computed, not chosen: any rung-1/rung-2 fail ⇒ blocked, regardless of rung 3."
+    },
+    "notes": { "type": ["string", "null"] }
+  }
+}

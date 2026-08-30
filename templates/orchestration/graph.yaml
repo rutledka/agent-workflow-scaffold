@@ -1,0 +1,101 @@
+# {{PROJECT_NAME}} — orchestration policy graph
+#
+# THIS FILE IS POLICY, NOT STATUS. It is hand-maintained, code-reviewed, and
+# changes rarely. The derived, regenerated-per-cycle view lives at
+# `orchestration/state.json` (never hand-edit that one).
+#
+# Ownership boundary — deliberate asymmetry, never bidirectional sync:
+#   * The PM tool (or pm/backlog.md in Files-only mode) owns TICKET STATUS.
+#     Status flows PM-tool → generated docs.
+#   * This file owns OWNERSHIP AND POLICY (persona↔work map, file domains,
+#     resources, gates, budgets, selection weights). Ownership flows
+#     graph.yaml → PM-tool labels → generated docs.
+#   If the two disagree on ownership, THIS file wins and the PM-tool label is
+#   corrected. If they disagree on status, the PM tool wins.
+#
+# Read by: scripts/preflight.sh, scripts/graph-sync.sh, scripts/qa-merge.sh,
+# scripts/with-resource-lock.sh, and agents/orchestrator.md (the operator).
+# Requires `yq` (https://github.com/mikefarah/yq) — checked by preflight.
+
+version: 1
+
+personas:
+  # One block per confirmed persona (Step 3a). `file_domains` come from the
+  # Step 2b codebase scan; refine them as the codebase grows — collision
+  # prediction is only as good as these globs.
+  #
+  # {{PERSONA_SLUG}}:
+  #   file: agents/{{PERSONA_SLUG}}.md
+  #   file_domains: ["{{GLOB}}", ...]     # paths this persona's PRs touch
+  #   requires_resources: []              # names from `resources:` below
+  #   max_open_prs: 6                     # starter constant — tune from run records
+  #   max_dispatch_per_cycle: 3           # starter constant — tune from run records
+  #
+  # Special roles:
+  #   role: evaluator          → holds the merge gate (usually qa-engineer);
+  #                              exactly one persona should carry this.
+  #   dispatch: interactive-only → never dispatched headless (design personas —
+  #                              their output needs a human eye before merge).
+  orchestrator:
+    file: agents/orchestrator.md
+    file_domains: ["docs/dispatch-logs/**", "orchestration/state.json"]
+  qa-engineer:
+    file: agents/qa-engineer.md
+    role: evaluator
+    file_domains: ["**/*.test.*", "**/*.spec.*"]
+
+resources: {}
+  # Capacity-N semaphores for physical constraints that would otherwise be
+  # "enforced" by two sessions reading the same paragraph — a shared local
+  # database, a device farm, a rate-limited external API. Enforced by
+  # scripts/with-resource-lock.sh; a blocked dispatch becomes a hold_reason,
+  # not a wedged resource.
+  #
+  # {{RESOURCE_NAME}}:
+  #   capacity: 1
+  #   scope: global            # global = across every session using this clone
+  #   stale_lock_ttl_min: 90   # locks older than this are reclaimed
+  #   reason: "{{WHY_THIS_CONSTRAINT_EXISTS_WITH_TICKET_REF}}"
+
+gates:
+  # Deterministic checks that must pass before merge. Harvested from the
+  # project's CI workflows / lint scripts / package scripts during the Step 2b
+  # scan and confirmed in the interview. Fields:
+  #   cmd:          a locally runnable command (mutually exclusive with `workflow`)
+  #   workflow:     a CI workflow filename when the gate only runs in CI
+  #   required_for: glob list — the gate applies when the PR diff touches these
+  #   runs_in:      local | ci  (ci = qa-merge.sh verifies via commit status,
+  #                 never by running the command locally)
+  #   resource:     optional resource name the command needs (semaphore-guarded)
+  #
+  # {{GATE_NAME}}: { cmd: "{{COMMAND}}", required_for: ["{{GLOB}}"] }
+  policy_lint: { cmd: "bash scripts/policy-lint.sh", required_for: ["**"] }
+
+policy:
+  autonomy: human-gated-merge          # merges go through the evaluator persona only
+  # Probed at scaffold time (SKILL.md Step 1):
+  #   merge-command  → GitHub-side required status checks are unavailable
+  #                    (private repo on a free personal plan); scripts/qa-merge.sh
+  #                    is the enforcement point. The common case.
+  #   github-native  → branch protection is available (public repo or paid
+  #                    plan); enable required status checks AND still merge
+  #                    through qa-merge.sh (the verdict-artifact and
+  #                    no-self-merge checks aren't expressible as status checks).
+  merge_gate_mode: "{{MERGE_GATE_MODE}}"   # substituted at scaffold time (quoted so the template parses)
+  merge_method: squash                 # squash | merge | rebase — qa-merge.sh uses this
+  design_hold:
+    # PRs matching these are NEVER merged by an agent — human visual review first.
+    branch_prefixes: ["design/"]
+    labels: ["design"]
+  max_consecutive_preflight_failures: 2  # circuit breaker — see scripts/preflight.sh
+  dispatch_budget:
+    max_usd: 8                         # per-dispatch spend cap (needs explicit user
+                                       # sign-off — this is a real-money policy knob)
+    timeout_min: 45                    # wall-clock bound per dispatch
+    # Note: enforce via `claude -p ... --max-budget-usd` + a timeout wrapper.
+    # There is no `--max-turns` flag in the current Claude Code CLI.
+  selection_weights:                   # frontier scoring — see scripts/graph-sync.sh
+    milestone_priority: 3.0            # higher = current-milestone work first
+    unblocks_count: 2.0                # critical-path proxy: tickets that unblock more, sooner
+    staleness_days: 0.1                # nudge long-waiting frontier tickets upward
+    collision_risk: -2.0               # penalize overlap with in-flight PRs' files
