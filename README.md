@@ -14,6 +14,8 @@ The methodology this skill encodes is opinionated. It assumes:
 
 If that matches how you want to work, this skill gives you a working scaffold in one invocation.
 
+> **Not using Claude Code?** The methodology also ships as two harness-agnostic prompts you can paste into any agent's system prompt or standing instructions — no shell, git, or file-system assumptions: [`prompts/graph-workflow-compact.md`](prompts/graph-workflow-compact.md) (~1,500 words, fits tight prompt budgets) and [`prompts/graph-workflow-full.md`](prompts/graph-workflow-full.md) (~3,500 words, with artifact skeletons, the failure-routing table, and a degradation ladder). They carry the repeatable core — the policy-graph/derived-state split, the preflight + circuit-breaker loop, computed-frontier planning, bounded dispatch, and the verification ladder — with the repo-specific machinery (worktrees, personas, PM integrations, skills) stripped out.
+
 ---
 
 ## Install
