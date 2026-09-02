@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orchestration/schemas/dispatch-result.json",
+  "title": "DispatchResult",
+  "description": "Structured output every headless sub-agent dispatch must return. Enforced via `claude -p ... --output-format json --json-schema orchestration/schemas/dispatch-result.json`. The orchestrator records one of these per dispatch in docs/dispatch-logs/YYYY-MM-DD.json.",
+  "type": "object",
+  "required": ["ticket", "persona", "outcome"],
+  "additionalProperties": false,
+  "properties": {
+    "ticket": {
+      "type": "string",
+      "description": "Ticket ID the dispatch worked on (PM-tool ID or backlog EPIC-XX-TYY)."
+    },
+    "persona": {
+      "type": "string",
+      "description": "Persona slug from orchestration/graph.yaml that executed the work."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["completed", "blocked", "gate_failed", "budget_exceeded", "failed"],
+      "description": "completed = PR open; blocked = dependency surfaced mid-work; gate_failed = a declared gate is red and retries are exhausted; budget_exceeded = halted at the spend/time cap; failed = anything else."
+    },
+    "pr_url": {
+      "type": ["string", "null"],
+      "description": "URL of the opened PR. Required when outcome is completed."
+    },
+    "branch": {
+      "type": ["string", "null"],
+      "description": "Branch pushed to origin, if any."
+    },
+    "blocked_on": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Ticket IDs or resource names the work is blocked on (outcome=blocked)."
+    },
+    "gate_results": {
+      "type": "array",
+      "default": [],
+      "description": "Result of each declared gate the sub-agent ran locally before pushing.",
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "description": "Gate name from graph.yaml `gates:`." },
+          "status": { "type": "string", "enum": ["pass", "fail", "not_applicable", "not_run"] },
+          "detail": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "followups": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Follow-up work discovered but out of scope — one line each; the orchestrator files tickets."
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "description": "One short paragraph max. Raw data over narrative — the dispatch log is the story."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "outcome": { "const": "completed" } } },
+      "then": { "required": ["ticket", "persona", "outcome", "pr_url"] }
+    }
+  ]
+}
