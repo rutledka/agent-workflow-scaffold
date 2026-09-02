@@ -5,6 +5,44 @@ All notable changes to `agent-workflow-scaffold` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-08-30
+
+The graph-orchestration retrofit: moves the agent workflow's coordination facts out of prose and into data, and turns its quality gates into commands with exit codes. Generalized from three months of field experience running a scaffolded project's orchestrator on a schedule — every observed failure (eight consecutive degraded runs, silently rotting status docs, a shared database "protected" by a paragraph, a merge gate that was a comment convention) was a scaffolding failure, not a model failure. Full design: `docs/graph-orchestration-retrofit.md`.
+
+### The work graph as data (Layer 0)
+
+- **`templates/orchestration/graph.yaml`** — the policy graph: personas + file domains, capacity-N resource semaphores with recorded reasons, a gates registry, `merge_gate_mode`, dispatch budgets, and frontier-selection weights. Policy lives here; **ticket status stays in the PM tool** — the ownership boundary is one-directional in each direction, never bidirectional sync.
+- **`orchestration/state.json`** — derived per cycle by `scripts/graph-sync.sh`: computed frontier (in-degree 0 over open blocking edges), scored ranking, collision flags against in-flight PRs, machine-readable `hold_reason`s, and invariant-check results. Committed each cycle so the diff between runs is the execution record. Never hand-edited.
+- **Generated views** — `pm/delivery-status.md` (PM-tool projects) and any block between `GENERATED FROM orchestration/graph.yaml` markers render from the single declaration, making "the epic exists but isn't in the index" impossible by construction.
+
+### The loop as a state machine (Layer 1)
+
+- **`scripts/preflight.sh`** — guard node + circuit breaker: cheap ordered checks (push reachability, `gh` auth, CLIs, graph parse, worktree/lock hygiene), a ONE-SCREEN failure report, and exit 2 at N consecutive failures = stop scheduling, alert a human.
+- **`scripts/with-resource-lock.sh`** — the semaphore as code; exit 75 = at capacity → a `hold_reason`, not a wedged resource.
+- **`templates/agents/orchestrator.md` rewritten** from a 322-line essay into a thin operator: preflight → sync → plan → dispatch → collect → report, with fixed failure-routing policy, budget-bounded typed dispatches (`--max-budget-usd` + `--json-schema orchestration/schemas/dispatch-result.json`), and a JSON dispatch-log twin so the caps and weights can finally be tuned from outcomes.
+
+### The merge gate as a command (Layer 2)
+
+- **`scripts/policy-lint.sh`** — the AGENTS.md hard rules as diff checks; composes existing project lints, never re-implements them.
+- **`orchestration/schemas/qa-verdict.json`** — the evaluator's sign-off becomes a head-SHA-pinned artifact with a *computed* verdict; `deferred` requires a reason (+ follow-up ticket) — deferral is countable, never free.
+- **`scripts/qa-merge.sh`** — the evaluator persona's only merge path: green checks on the PR's *current* head, valid verdict artifact, no-self-merge, design-PR hold. **Plan-aware:** Step 1 probes the branch-protection API; private repos on free personal plans (the common case) get `merge_gate_mode: merge-command` with the script as the enforcement point, public/paid repos get `github-native` plus the script. Merge queue is never proposed for user-owned repos.
+- **`AGENTS.md` autonomy table** — who decides what, binding every agent: roadmap human; planning agentic; merge = evaluator via `qa-merge.sh`; design merges, prod deploys, and spend human.
+
+### Discovery + generation wiring
+
+- **Step 1** merge-gate probe; **Step 2** Q16 (shared resources → semaphores) and Q17 (gates; opt-in advisory-until-calibrated LLM judge, default off); **Step 2b.8** harvests gate candidates and file-domain globs from the codebase scan; **Step 3f** presents the graph plan with an explicit sign-off on the real-money dispatch budget; **Step 4c** writes `orchestration/` + `scripts/` and gitignores `orchestration/.runtime/`.
+
+### Migration to v1.3 for existing scaffolded projects
+
+- **Step 1.5 D13–D19** — drift detectors for the missing graph, prose-shaped orchestrator, absent guard scripts, unmechanized policy rules, missing merge gate, hand-maintained delivery status (PM-tool projects), and missing autonomy table. Ordering enforced: D13's **ownership audit** precedes anything that generates from the persona map — never publish a wrong owner with a machine's authority.
+- **`scripts/migrate-to-graph-orchestration.sh`** — standalone one-shot mirroring the v1.1 migration contract: phase-0 pipeline-health checklist, worktree + one commit per detector + PR, `--dry-run`/`--no-pr`, idempotent. Judgment stays human: the ownership audit pauses for acknowledgment, the orchestrator rewrite is staged beside the existing persona, the backlog split is detect-and-print.
+
+### Working principles
+
+- **A gate is a command with an exit code, or it is not a gate.** Prose gates decay into conventions; conventions decay into nothing.
+- **Buy the graph discipline, not the graph framework.** Typed state, guard edges, budgets, structured traces — no LangGraph/Temporal runtime for an eight-node loop.
+- **Everything is bounded.** Budgets, timeouts, retries, and consecutive failures all have declared limits; unbounded is what turns a bad run into a bad week.
+
 ## [1.2.0] — 2026-05-07
 
 Adds an opt-in for the [`learning-opportunities`](https://github.com/DrCatHicks/learning-opportunities) skill so users can reinforce their own understanding of the work the agents are facilitating. Deliberately minimal: the scaffold introduces the skill and stops — the skill's own evidence-based trigger logic stays authoritative.

@@ -1,13 +1,14 @@
 # agent-workflow-scaffold
 
-A Claude Code skill that scaffolds a multi-agent project workflow into any new or existing repo. Drop it into a project, invoke `/agent-workflow-scaffold`, answer a short discovery interview, and the skill writes an `AGENTS.md` (with a `CLAUDE.md` symlink for Claude Code), a set of agent persona files in `agents/`, PM artifacts in `pm/`, an ADR + dispatch-log structure in `docs/`, project-local skills under `skills/`, and bootstraps user-scoped memory with starter preferences.
+A Claude Code skill that scaffolds a multi-agent project workflow into any new or existing repo. Drop it into a project, invoke `/agent-workflow-scaffold`, answer a short discovery interview, and the skill writes an `AGENTS.md` (with a `CLAUDE.md` symlink for Claude Code), a set of agent persona files in `agents/`, PM artifacts in `pm/`, an orchestration graph + guard scripts (`orchestration/`, `scripts/`), an ADR + dispatch-log structure in `docs/`, project-local skills under `skills/`, and bootstraps user-scoped memory with starter preferences.
 
 The methodology this skill encodes is opinionated. It assumes:
 
 - **Every task ships through a worktree → PR**, never a direct commit to `main`.
 - **Roles are personas**, defined as system prompts in `agents/<role>.md`, not just tagged labels.
-- **A runnable Orchestrator persona** dispatches work each cycle: reads the backlog, triages open PRs, decides what each agent works on next, writes a dispatch log.
-- **The backlog is the source of truth for delivery**, the management plan is for leadership, the roadmap is for stakeholders. Three documents, three audiences.
+- **A runnable Orchestrator persona** dispatches work each cycle — as an operator of a declared graph, not an essay: `orchestration/graph.yaml` holds the policy (ownership, file domains, resource semaphores, gates, budgets), `graph-sync` computes the frontier and blockers, and a `preflight` guard with a circuit breaker stops the loop from spending cycles on a broken pipeline.
+- **A gate is a command with an exit code, or it is not a gate.** Quality rules run as scripts (`policy-lint.sh`); the merge gate is `qa-merge.sh` — head-SHA-pinned green checks + a structured verdict artifact + no-self-merge — which works even on private repos where GitHub's required status checks are paywalled.
+- **The backlog is the source of truth for delivery**, the management plan is for leadership, the roadmap is for stakeholders. Three documents, three audiences. Ticket status lives in the PM tool; ownership and policy live in `graph.yaml` — never bidirectional sync.
 - **Load-bearing decisions live in numbered ADRs** under `docs/adr/`, not in chat history.
 - **User memory carries the workflow's discipline forward** across sessions.
 
