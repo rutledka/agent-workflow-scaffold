@@ -74,6 +74,22 @@ templates/
 │   ├── tech-docs-registry.md          # library / framework → official docs URL (Step 2b scan)
 │   ├── feature-overlap-registry.md    # overlapping libs → deprecation candidates (Step 2b scan)
 │   └── dispatch-logs/.gitkeep
+├── orchestration/                     # the work graph as data (Step 4c)
+│   ├── README.md                      # policy-vs-derived split + ownership boundary
+│   ├── graph.yaml                     # POLICY: personas + file domains, resources,
+│   │                                  #   gates, merge_gate_mode, budgets, weights.
+│   │                                  #   state.json (derived) is generated at runtime
+│   │                                  #   by scripts/graph-sync.sh — never shipped.
+│   └── schemas/
+│       ├── dispatch-result.json       # structured headless sub-agent output contract
+│       └── qa-verdict.json            # head-SHA-pinned QA verdict artifact contract
+├── scripts/                           # loop guard rails (Step 4c; chmod +x on copy)
+│   ├── README.md
+│   ├── preflight.sh                   # guard node + circuit breaker (exit 2 = stop scheduling)
+│   ├── graph-sync.sh                  # derives state.json + renders generated views
+│   ├── with-resource-lock.sh          # capacity-N semaphore (exit 75 = hold_reason)
+│   ├── policy-lint.sh                 # AGENTS.md hard rules as diff checks
+│   └── qa-merge.sh                    # the evaluator persona's only merge path
 └── memory/
     ├── MEMORY.md                      # index, with starter entries linked
     ├── feedback-worktrees-not-siblings.md
@@ -99,7 +115,8 @@ When the user invokes you, follow these steps in order. Do not skip any. The flo
 Read the current working directory. Determine:
 
 1. Is this a git repo already (`.git/` exists)? If not, recommend the user run `git init` first, but offer to scaffold anyway and remind them at the end.
-2. Does the project already have any of `CLAUDE.md`, `AGENTS.md`, `agents/`, `pm/`, or `docs/dispatch-logs/`? If yes, this is one of three states — a **previously-scaffolded project**, a **legacy-scaffolded project** (set up against an older version of this skill that's drifted from current conventions), or a **user-customized project** (the user has authored their own `CLAUDE.md` rules without ever running this scaffold). Don't blindly overwrite — instead:
+2. **Probe merge-gate availability.** Run `gh api "repos/{owner}/{repo}/branches/<default-branch>/protection" 2>&1` (requires the repo from Q6; defer until after Step 2 if unknown). A 200 or 404 means branch protection is *available* (public repo or paid plan) → record `merge_gate_mode: github-native`. A 403 mentioning "Upgrade to GitHub Pro" means it is not (the common case: private repo on a free personal plan) → record `merge_gate_mode: merge-command`. This value renders into `orchestration/graph.yaml` in Step 4c and decides whether Step 9 recommends enabling required status checks. Either way `scripts/qa-merge.sh` is the merge path — the verdict-artifact and no-self-merge checks aren't expressible as status checks. Never propose GitHub merge queue for a user-owned repo (org-repos only).
+3. Does the project already have any of `CLAUDE.md`, `AGENTS.md`, `agents/`, `pm/`, or `docs/dispatch-logs/`? If yes, this is one of three states — a **previously-scaffolded project**, a **legacy-scaffolded project** (set up against an older version of this skill that's drifted from current conventions), or a **user-customized project** (the user has authored their own `CLAUDE.md` rules without ever running this scaffold). Don't blindly overwrite — instead:
    - Run **Step 1.5 — Detect drift** below to classify which kind of "already has content" you're looking at.
    - Based on the drift report, ask the user how to proceed: **migrate** (apply the drift plan), **continue as discovery** (Step 2 interview, then layer onto existing artifacts), or **abort**.
 
@@ -125,6 +142,13 @@ Run these detectors **in order**, recording each as `current` (no drift) or `leg
 | D10 | Missing `docs/subagents-registry.md` | `[ ! -f docs/subagents-registry.md ]` | Copy from `templates/docs/subagents-registry.md`. |
 | D11 | `agents/*.md` files missing the `## Available sub-agents for delegation` section | `for f in agents/*.md; do grep -q '^## Available sub-agents for delegation' "$f" \|\| echo "$f"; done` (any output → drift) | For each persona file lacking the section, append the appropriate Available-sub-agents block. For off-the-shelf personas (filenames matching `backend-engineer.md`, `frontend-engineer.md`, etc.), copy the section from the matching `templates/agents/<name>.md`. For custom personas (any other filename), match the persona's role description against the keyword index in `docs/subagents-registry.md` (Step 4b's logic) and render a best-guess section the user can edit. The migration script at `scripts/migrate-personas-to-voltagent-subagents.sh` (in the scaffold repo) implements this same logic for users who want to run it standalone — see "Standalone migration" below. |
 | D12 | Missing AGENTS.md "Rule: Brief sub-agents with persona context" section | `! grep -q 'Rule: Brief sub-agents with persona context' AGENTS.md 2>/dev/null` (after D1 if applicable) | Insert the rule after "Rule: Dispatching sub-agents" in `AGENTS.md`. The rule defines the briefing protocol every persona references in its **Available sub-agents** section. Without it, the per-persona references point to a section that doesn't exist locally. |
+| D13 | Missing `orchestration/graph.yaml` | `[ ! -f orchestration/graph.yaml ]` | **Interactive.** Run the ownership audit FIRST: reconcile persona-file claims (`agents/*.md`) against PM-tool ownership labels (if a PM tool is wired) and surface every disagreement to the user — fix the wrong source before declaring anything (generation makes a fact single-sourced and visible; it does not make the source correct). Then render `templates/orchestration/graph.yaml` with the confirmed persona↔domain map, gates harvested from CI workflows / lint scripts / package scripts, the Step 1 `merge_gate_mode` probe result, and copy `orchestration/README.md` + `orchestration/schemas/`. Append `orchestration/.runtime/` to `.gitignore`. |
+| D14 | Orchestrator persona is the prose-loop shape | `! grep -q 'preflight' agents/orchestrator.md 2>/dev/null` | **Interactive.** Extract project-specific content (role map rows, priority conventions, custom rules) into `graph.yaml` first, then replace the persona body with the operator-shaped `templates/agents/orchestrator.md` (re-substituting `{{PROJECT_NAME}}`, `{{REPO_OWNER_REPO}}`). Show the user the diff of what moved where — nothing is dropped silently. Runs after D13 (the operator reads `graph.yaml`). |
+| D15 | Missing `scripts/preflight.sh` | `[ ! -x scripts/preflight.sh ]` | Copy `templates/scripts/preflight.sh` + `templates/scripts/with-resource-lock.sh` + `templates/scripts/graph-sync.sh` + `templates/scripts/README.md`; `chmod +x`. Runs after D13 (they read `graph.yaml`). |
+| D16 | Missing `scripts/policy-lint.sh` | `[ ! -x scripts/policy-lint.sh ]` | Render `templates/scripts/policy-lint.sh`, substituting the source glob / migrations dir / routes pattern / contract doc from the codebase scan, and listing any existing project lint scripts in `PROJECT_LINTS` (compose, never re-implement). Recommend wiring into CI. |
+| D17 | Missing merge-command gate | `[ ! -x scripts/qa-merge.sh ]` or `! grep -q 'qa-merge' agents/qa-engineer.md` | Run the Step 1 merge-gate probe if not yet run; set `policy.merge_gate_mode` in `graph.yaml`; copy `templates/scripts/qa-merge.sh` (+x) and `templates/orchestration/schemas/qa-verdict.json`; append the "Merge authority — the verdict artifact and the gate" section from `templates/agents/qa-engineer.md` to the project's QA persona. |
+| D18 | PM tool wired but delivery status hand-maintained | a `skills/pm-*-*/SKILL.md` exists **and** `pm/backlog.md` contains status/ticket tables (grep for status-marker rows) | Split per the generated-views design: `scripts/graph-sync.sh --render-delivery` produces `pm/delivery-status.md`; trim `pm/backlog.md` to human-owned conventions (exit criteria, sizing legend, status mapping, query cookbook) and link the generated file. **Skipped entirely for Files-only projects** — there `pm/backlog.md` stays the live source of truth. |
+| D19 | `AGENTS.md` missing the Autonomy table | `! grep -q 'Autonomy table' AGENTS.md 2>/dev/null` (after D1 if applicable) | Insert the `## Autonomy table` section from `templates/AGENTS.md` (rendered with the project's persona names) before "## Project Structure", plus the evaluator merge-authority bullet under the PRs hard rules. |
 
 #### Surface the drift report
 
@@ -168,7 +192,7 @@ Do not proceed until the user confirms or amends.
 For each confirmed drift item, apply the migration action **inside a worktree** (the scaffold is changing files in the user's repo — same worktree-and-PR discipline AGENTS.md describes for any other work). The scaffold:
 
 1. Creates a worktree at `.worktrees/scaffold/migrate-<YYYYMMDD-HHMM>` off the current HEAD.
-2. Applies each confirmed drift fix in the worktree, in detector order (D1 → D9). Order matters: D1 (CLAUDE.md → AGENTS.md) must complete before D8 (which edits AGENTS.md), and D2 (skills move) must complete before D5–D7 (which write under `docs/` but reference `skills/README.md`).
+2. Applies each confirmed drift fix in the worktree, in detector order (D1 → D19). Order matters: D1 (CLAUDE.md → AGENTS.md) must complete before D8/D12/D19 (which edit AGENTS.md); D2 (skills move) must complete before D5–D7 (which write under `docs/` but reference `skills/README.md`); and D13 (declare `graph.yaml`, ownership audit included) must complete before D14–D17 (which read it). The D13 ownership audit is a hard precondition for anything that generates from the persona map — never publish a wrong owner with a machine's authority.
 3. Stages each fix as a separate commit so the user can review the diff per drift item: `D1: rename CLAUDE.md → AGENTS.md + symlink`, `D2: move .claude/skills → skills/ + symlink`, etc.
 4. Pushes the branch and opens a PR with the drift report as the body.
 5. Reports the PR URL — the user reviews and merges.
@@ -199,6 +223,15 @@ The script:
 - Is idempotent: re-running on an already-migrated project detects every persona has the section and exits with "no migration needed."
 
 The script is the same logic as Step 1.5's D10/D11 detectors — written as a one-shot for users who want a quick `bash` invocation without re-running the full discovery interview.
+
+A second standalone script covers the graph-orchestration migration (detectors D13–D19, the v1.2 → v1.3 upgrade):
+
+```bash
+# From the project root (a project scaffolded before v1.3):
+bash <path-to-scaffold>/scripts/migrate-to-graph-orchestration.sh
+```
+
+Same contract as the sub-agents migration — detects the scaffold install location, runs inside a worktree, commits per detector, pushes and opens a PR, idempotent (all-current → "no migration needed", no PR). Two detectors are **interactive** and the script pauses for them rather than deciding alone: D13's ownership audit (it prints persona-map disagreements for confirmation) and D14's orchestrator rewrite (it prints the diff of what moves into `graph.yaml`). It also leads with a phase-0 pipeline-health checklist (push credentials valid, `gh` authed, no orphan worktrees, no uncommitted dispatch logs) — none of the graph machinery matters on a dead pipeline.
 
 ### Step 2 — Discovery interview
 
@@ -294,6 +327,26 @@ About reinforcing what you learn from the work:
 
       - Yes
       - No
+
+About the orchestration loop:
+16) Are there physical shared resources agents must not use concurrently?
+    (e.g. one shared local database that corrupts under parallel test
+    runs, a device farm, a rate-limited external API). For each: a short
+    name, how many concurrent users it tolerates (usually 1), and why —
+    the "why" gets recorded next to the constraint so nobody relitigates
+    it. These become enforced semaphores, not paragraphs agents must
+    remember. "None" is a fine answer.
+17) Quality gates: which commands must be green before a PR merges?
+    I'll scan your CI workflows, lint scripts, and package manifests and
+    propose a list (Step 3) — mention here anything the scan won't find
+    (a manual device-matrix pass, a load-test budget) plus any check
+    that should be *deferrable with a reason* rather than blocking.
+
+    (An optional LLM acceptance-criteria judge — a second model family
+    reviewing diffs against ticket acceptance criteria — is available
+    but OFF by default; the deterministic gates are the value. Say
+    "judge: yes" if you want it proposed; it stays advisory until
+    calibrated against human-labeled PRs either way.)
 ```
 
 Wait for answers before doing anything else. If the user gives a partial answer — e.g. only items 1, 3, 6, 7, 12 — that's fine; proceed with what you have and infer rather than re-asking.
@@ -549,6 +602,13 @@ After completing 2b.0 through 2b.7a for all codebases, you have:
 - A technology inventory per codebase with doc URLs ready to inject.
 - A list of confirmed deprecation notes per codebase.
 - A list of project-local skills drafted at `skills/<codebase-slug>/SKILL.md` (if any).
+- **Gate candidates + file domains** (for `orchestration/graph.yaml`, Step 4c): while
+  scanning manifests and CI config, also harvest (a) every check that could gate a merge —
+  CI workflow jobs, `scripts/*lint*`, package-manifest script entries like
+  `test`/`typecheck`/`lint`/`check` — as `{name, cmd-or-workflow, required_for glob,
+  runs_in local|ci}` candidates, and (b) per-codebase path globs (e.g. `code/backend/**`)
+  as `file_domains` for the owning personas. Both feed the Step 3f proposal; neither is
+  written until the user confirms it.
 
 Carry all of this into Step 3's synthesis. When Step 4 writes the populated `pm/codebases.md`, render each codebase using the matching variant block from `templates/pm/codebases.md`:
 
@@ -687,9 +747,21 @@ Codebase: backend (Variant B — in-repo workstream)
 
 If the user said "none yet" in Q12, this subsection still appears: the project itself is registered as a single Variant B entry so personas have a stack-inventory pointer (the standard `main`-branch flow in `AGENTS.md` covers the workflow side).
 
+#### 3f. Orchestration graph plan
+
+Present the `orchestration/graph.yaml` that Step 4c will write, as a compact proposal:
+
+- **Persona → file domains** — from 3a's personas + 2b.8's harvested globs. One line per persona.
+- **Resources** — from Q16, with capacity and the recorded "why". Omit the section entirely if the user said none.
+- **Gates** — the harvested candidates from 2b.8 merged with anything the user added in Q17: name, command or CI workflow, `required_for` glob, `runs_in`. Flag any gate the scan found that looks like it belongs but wasn't confirmed.
+- **Merge gate mode** — the Step 1 probe result, stated plainly: either "`github-native` — branch protection available; I'll recommend enabling required status checks in Step 9, and `scripts/qa-merge.sh` still runs the verdict/self-merge checks" or "`merge-command` — required status checks unavailable on this plan (private repo, free personal plan); `scripts/qa-merge.sh` is the enforcement point."
+- **Evaluator persona** — which 3a persona gets `role: evaluator` (default: QA Engineer; if no QA persona was confirmed, propose the closest reviewer-shaped persona and say so). Design-shaped personas get `dispatch: interactive-only`.
+- **Budgets** — the starter `dispatch_budget` (`max_usd: 8`, `timeout_min: 45`) called out explicitly for sign-off: *"this is a real-money per-dispatch cap; confirm or change the number."* Never treat the spend cap as a silent default.
+- **LLM judge** — only if the user opted in via Q17: note it ships advisory-only until calibrated.
+
 #### 3e. Confirmation
 
-After presenting 3a + 3b + 3c + 3c-sub + 3c-bis + 3d, ask the user one clear confirm-or-edit question:
+After presenting 3a + 3b + 3c + 3c-sub + 3c-bis + 3d + 3f, ask the user one clear confirm-or-edit question:
 
 ```
 Does this look right? Reply "ship it" to generate everything as listed, or
@@ -831,6 +903,19 @@ For each `custom-skeleton.md`-based persona:
    ```
 
 5. Substitute the rendered content for `{{SUBAGENT_SECTION}}` in the rendered persona file. The retained boilerplate ("the scaffold injected the sub-agent recommendations above…") stays so the user knows the section is editable. The role-level-decisions list is the most valuable thing for the user to refine — encourage it explicitly in the post-scaffold "Next steps" summary.
+
+#### Step 4c — Generate the orchestration graph + guard scripts
+
+Written whenever the Orchestrator persona was confirmed in 3a (skip only if the user explicitly declined orchestration):
+
+1. **`orchestration/graph.yaml`** — render `templates/orchestration/graph.yaml` from the confirmed 3f plan: one persona block per confirmed persona (file, `file_domains`, starter caps), `role: evaluator` on the evaluator, `dispatch: interactive-only` on design personas, the Q16 resources with their recorded reasons, the confirmed gates, `merge_gate_mode` from the Step 1 probe, and the signed-off budget numbers. Delete the template's commented example blocks from the rendered output.
+2. **`orchestration/README.md`** and **`orchestration/schemas/`** — copy verbatim.
+3. **`scripts/`** — copy `preflight.sh`, `graph-sync.sh`, `with-resource-lock.sh`, `qa-merge.sh`, and `README.md`; render `policy-lint.sh` substituting `{{DEFAULT_BRANCH}}`, `{{SRC_GLOB}}`, `{{MIGRATIONS_DIR}}`, `{{ROUTES_PATTERN}}`, `{{CONTRACT_DOC}}` from the 2b scan (leave a token blank to disable that check) and listing any existing project lint scripts in `PROJECT_LINTS` — compose, never re-implement. `chmod +x scripts/*.sh`.
+4. **`.gitignore`** — append `orchestration/.runtime/` (lockfiles, failure counters, checkpoints — per-machine state, never committed).
+5. **Dependency note** — the scripts need `jq` and `yq` (mikefarah) in addition to `git`/`gh`. If either is missing on this machine, say so in the Step 9 summary with the install command; `preflight.sh` will enforce it at run time.
+6. **PM-tool projects only**: note in the Step 9 summary that after the first `graph-sync.sh --render-delivery`, `pm/delivery-status.md` becomes the generated status view (the 5b pointer doc keeps conventions and links to it). Files-only projects skip this — `pm/backlog.md` remains the live source of truth.
+
+The ownership boundary to state whenever this step runs: **the PM tool owns ticket status; `graph.yaml` owns ownership and policy.** Neither direction is bidirectional sync.
 
 #### Step 4a — Create platform-compatibility symlinks and configs
 
