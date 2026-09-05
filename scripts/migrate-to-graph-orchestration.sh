@@ -207,7 +207,7 @@ if $d17; then
   cp "$T_SCRIPTS/qa-merge.sh" scripts/qa-merge.sh && chmod +x scripts/qa-merge.sh
   [ -f orchestration/schemas/qa-verdict.json ] || cp "$T_ORCH/schemas/qa-verdict.json" orchestration/schemas/
   if [ -f agents/qa-engineer.md ] && ! grep -q 'Merge authority' agents/qa-engineer.md; then
-    awk '/^## Merge authority/{grab=1} grab && /^## Working patterns/{exit} grab{print}' \
+    awk '/^## Merge authority/{grab=1; print; next} grab && /^## /{exit} grab{print}' \
       "$T_AGENTS/qa-engineer.md" >> agents/qa-engineer.md
   fi
   # merge_gate_mode probe
