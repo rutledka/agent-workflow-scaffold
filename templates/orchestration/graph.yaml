@@ -26,6 +26,11 @@ personas:
   #
   # {{PERSONA_SLUG}}:
   #   file: agents/{{PERSONA_SLUG}}.md
+  #   branch_prefix: {{PREFIX}}           # branch-naming prefix when it differs from
+  #                                       #   the slug (backend/ → backend-engineer);
+  #                                       #   omit when branches use the slug itself.
+  #                                       #   qa-merge.sh and graph-sync.sh resolve
+  #                                       #   PR authorship through this.
   #   file_domains: ["{{GLOB}}", ...]     # paths this persona's PRs touch
   #   requires_resources: []              # names from `resources:` below
   #   max_open_prs: 6                     # starter constant — tune from run records
