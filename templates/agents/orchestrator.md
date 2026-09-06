@@ -59,7 +59,7 @@ If the project references external codebases via `pm/codebases.md`, sub-agents d
 
 ## Agent role map
 
-The role map is **generated from `orchestration/graph.yaml`** — edit ownership there, never here. `scripts/graph-sync.sh` rewrites the block below each cycle; branch prefixes equal persona slugs (`backend-engineer/…` → `agents/backend-engineer.md`).
+The role map is **generated from `orchestration/graph.yaml`** — edit ownership there, never here. `scripts/graph-sync.sh` rewrites the block below each cycle. Branch prefixes map to personas via each persona's `branch_prefix` field in `graph.yaml` (default: the persona slug — declare the field whenever the project's branch naming uses short forms like `backend/`).
 
 <!-- GENERATED FROM orchestration/graph.yaml -->
 | Persona | File | File domains |

@@ -48,7 +48,14 @@ state="$(jq -r '.state' <<<"$pr_json")"
 [ "$state" = "OPEN" ] || refuse "PR #$PR is $state, not OPEN"
 branch="$(jq -r '.headRefName' <<<"$pr_json")"
 head_sha="$(jq -r '.headRefOid' <<<"$pr_json")"
-author_persona="${branch%%/*}"
+branch_prefix="${branch%%/*}"
+# Resolve the branch prefix to a persona slug via each persona's optional
+# `branch_prefix` field in graph.yaml (projects often use short prefixes:
+# backend/ for the backend-engineer persona, qa/ for qa-engineer). Without
+# this resolution a short-prefix repo would never trip the no-self-merge
+# check. Falls back to the prefix itself when no persona declares it.
+author_persona="$(yq -r ".personas | to_entries[] | select((.value.branch_prefix // .key) == \"$branch_prefix\") | .key" "$GRAPH" | head -1)"
+[ -n "$author_persona" ] || author_persona="$branch_prefix"
 
 # 1. No self-merge — structurally.
 [ "$author_persona" != "$evaluator" ] \

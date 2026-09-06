@@ -62,11 +62,17 @@ if ! $render_from_state; then
   weights_json="$(yq -o=json '.policy.selection_weights // {}' "$GRAPH")"
   personas_json="$(yq -o=json '.personas // {}' "$GRAPH")"
 
-  # Open-PR overlay: number, branch, author-persona (branch prefix), changed files.
+  # Open-PR overlay: number, branch, author-persona, changed files. The
+  # branch prefix resolves to a persona slug via each persona's optional
+  # `branch_prefix` field (default: the slug) — short-prefix repos
+  # (backend/ → backend-engineer) would otherwise get empty per-persona
+  # PR counts and no collision flags.
+  prefix_map="$(yq -o=json '.personas | to_entries | map({key: (.value.branch_prefix // .key), value: .key}) | from_entries' "$GRAPH")"
   prs_json="$(gh pr list --state open --json number,headRefName,files,title \
     --jq '[.[] | {number, branch: .headRefName,
-                  persona: (.headRefName | split("/")[0]),
+                  prefix: (.headRefName | split("/")[0]),
                   files: [.files[].path], title}]' 2>/dev/null || echo '[]')"
+  prs_json="$(jq --argjson pm "$prefix_map" 'map(.persona = ($pm[.prefix] // .prefix))' <<<"$prs_json")"
 
   jq -n \
     --slurpfile tickets "$TICKETS" \
